@@ -1,5 +1,6 @@
-# efficient-pixart-sigma-lora
-Domain adaptation and efficient inference sampling benchmarks for PixArt-Sigma (DiT) using LoRA. Explores resource-constrained fine-tuning and optimal sampling configurations for specialized text-to-image generation.
+Here is a comprehensive, end-to-end implementation and training workflow designed specifically for your **PixArt-Sigma LoRA** project. It is structured to keep your experiment organized and highly automated so you don't get lost in data management.
+
+---
 
 ## 📋 Project Execution Pipeline
 
