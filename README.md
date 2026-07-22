@@ -1,7 +1,18 @@
 # efficient-pixart-sigma-lora
+
 Domain adaptation and efficient inference sampling benchmarks for PixArt-Sigma (DiT) using LoRA. Explores resource-constrained fine-tuning and optimal sampling configurations for specialized text-to-image generation.
 
-Traning on: GPU NVIDIA GeForce RTX 4070 12GB
+Training setup: GPU NVIDIA GeForce RTX 4070 12GB
+
+## Data Source
+
+This project now uses a local ink-wash image corpus collected from Tappu via the scraper script [download_tappu.py](download_tappu.py). The script crawls the Tappu gallery pages, downloads representative images, translates article text to English, and saves the outputs into the local folders:
+
+- [data/ink/animal](data/ink/animal)
+- [data/ink/plant](data/ink/plant)
+- [data/ink/others](data/ink/others)
+
+Each downloaded item produces an image file plus a matching `.txt` caption file.
 
 ## 📋 Project Execution Pipeline
 
@@ -62,30 +73,45 @@ flowchart LR
 
 ## Phase 1: Data Architecture & Preprocessing
 
-Before touching any GPU code, you must build your dataset subsets to guarantee perfect experimental control.
+Before touching any GPU code, you must build a local dataset in a deterministic structure so that training and evaluation are reproducible.
 
-### 1. Data Splitting
+### 1. Collecting the Source Data
 
-Create a single master folder of 300 high-quality images of your chosen style (e.g., Tech Line Art). Ensure the subsets are nested so that the smaller sets are exact components of the larger ones:
+Run [download_tappu.py](download_tappu.py) from the project root to scrape the Tappu gallery and populate the local dataset folders:
 
-* **Dataset A (Micro):** First 50 images.
-* **Dataset B (Medium):** First 100 images (includes Dataset A).
-* **Dataset C (Full):** All 300 images (includes Dataset B).
+```bash
+python download_tappu.py
+```
+
+The script downloads images and translated captions into the following structure:
+
+```bash
+data/ink/
+├── animal/
+│   ├── 100.jpg
+│   ├── 100.txt
+│   └── ...
+├── plant/
+│   ├── 200.jpg
+│   ├── 200.txt
+│   └── ...
+└── others/
+    ├── no_num_1001.jpg
+    ├── no_num_1001.txt
+    └── ...
+```
+
+These local image folders are then used directly by the notebook workflow and the captioning script.
 
 ### 2. Automated Captioning
 
-Do not caption manually. Use a Python script with **BLIP-2** or **LLaVA** to generate a matching `.txt` file for every single image.
-
-* *File structure requirement:*
+Do not caption manually. Use [auto_caption.py](auto_caption.py) to generate a matching `.txt` file for every image in the local dataset folder.
 
 ```bash
-dataset_300/
-├── 001.png
-├── 001.txt  # Contains: "A technical line art blueprint of a mechanical gear, white background..."
-├── 002.png
-└── 002.txt
-
+python auto_caption.py --dir ./data/ink --model florence-2 --trigger "traditional Chinese ink wash painting style, shuimo hua"
 ```
+
+The notebook is configured to point at the local dataset under [data/ink](data/ink), so the captioning step can be run directly on that folder.
 
 ---
 
@@ -95,9 +121,9 @@ Since you need to train **9 distinct LoRA models** ($3 \text{ Ranks} \times 3 \t
 
 ### 1. Core Stack
 
-* **Framework:** Hugging Face `diffusers` + PyTorch.
-* **Base Model:** `PixArt-alpha/PixArt-Sigma-XL-2-1024-MS` (or the 512 variant if VRAM is tight).
-* **Script base:** Modify the standard `train_text_to_image_lora.py` from Hugging Face's example repository to support PixArt-Sigma.
+- **Framework:** Hugging Face `diffusers` + PyTorch.
+- **Base Model:** `PixArt-alpha/PixArt-Sigma-XL-2-1024-MS` (or the 512 variant if VRAM is tight).
+- **Script base:** Modify the standard `train_text_to_image_lora.py` from Hugging Face's example repository to support PixArt-Sigma.
 
 ### 2. The Training Loop Automation Script (`run_train_matrix.sh`)
 
@@ -141,9 +167,9 @@ Once training finishes, you will have 9 `.safetensors` files. Now you must evalu
 
 Prepare 3 specific prompt templates of escalating complexity:
 
-* `PROMPT_SIMPLE`: "A car, [your style tag]."
-* `PROMPT_COMBO`: "A sports car driving through a city street, [your style tag]."
-* `PROMPT_COMPLEX`: "A futuristic aerodynamic sports car speeding down a neon-lit cyberpunk alleyway, intricate details, flawless [your style tag]."
+- `PROMPT_SIMPLE`: "A car, [your style tag]."
+- `PROMPT_COMBO`: "A sports car driving through a city street, [your style tag]."
+- `PROMPT_COMPLEX`: "A futuristic aerodynamic sports car speeding down a neon-lit cyberpunk alleyway, intricate details, flawless [your style tag]."
 
 ### 2. Automated Evaluation Script (`generate_grid.py`)
 
@@ -195,21 +221,21 @@ With your 324 images sorted, finalize your study by mapping out the metrics.
 
 ### 1. Quantitative (Code-Driven)
 
-* **Latency Tracking:** In your `generate_grid.py` script, wrap your `pipe()` call with `time.time()` to log exactly how many milliseconds each inference combination takes. Save these directly to a CSV file.
-* **CLIPScore / ImageReward:** Write a fast batch script to load your generated images alongside their input text prompts to compute automated text-alignment scores.
+- **Latency Tracking:** In your `generate_grid.py` script, wrap your `pipe()` call with `time.time()` to log exactly how many milliseconds each inference combination takes. Save these directly to a CSV file.
+- **CLIPScore / ImageReward:** Write a fast batch script to load your generated images alongside their input text prompts to compute automated text-alignment scores.
 
 ### 2. Qualitative (Human Blind Test)
 
-* Pick a subset of the images (e.g., focusing only on the `complex` prompt).
-* Create a simple shared spreadsheet for your team. Grade images from 1 to 5 on two clear elements:
-* *Style Alignment:* Did it actually look like tech line art/ink wash, or did it bleed back into a generic photo?
-* *Structural Integrity:* Are the lines clean, or did the architecture or text turn into chaotic gibberish?
+- Pick a subset of the images (e.g., focusing only on the `complex` prompt).
+- Create a simple shared spreadsheet for your team. Grade images from 1 to 5 on two clear elements:
+- *Style Alignment:* Did it actually look like tech line art/ink wash, or did it bleed back into a generic photo?
+- *Structural Integrity:* Are the lines clean, or did the architecture or text turn into chaotic gibberish?
 
 ### 3. Deliverable Presentation (The Pareto Frontier)
 
 Plot a 2D scatter plot where:
 
-* **X-axis:** Inference Time (Latency in seconds).
-* **Y-axis:** Quality Score (CLIPScore or Human Rating).
+- **X-axis:** Inference Time (Latency in seconds).
+- **Y-axis:** Quality Score (CLIPScore or Human Rating).
 
 Your goal in your final presentation is to draw a line connecting the top-leftmost points. This line represents your **Pareto Frontier**—showing your class exactly where the optimal "quality-speed sweet spots" live when deploying a fine-tuned DiT model with constrained resources.

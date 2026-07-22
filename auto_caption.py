@@ -9,6 +9,7 @@ alongside every image.
 Supported models
 ----------------
   florence-2  microsoft/Florence-2-large                     (~3 GB VRAM, excellent detail)
+  blip2       Salesforce/blip2-opt-2.7b                      (~5 GB VRAM float16, fast, supports text hints)
   joycaption  fancyfeast/llama-joycaption-alpha-two-hf       (~5 GB VRAM with 4-bit NF4 quantization, richest descriptions)
 
 Usage examples
@@ -80,6 +81,11 @@ MODEL_CONFIGS = {
         "model_id": "microsoft/Florence-2-large",
         "backend": "florence-2",
         "description": "Florence-2-large — ~3 GB VRAM, excellent detail",
+    },
+    "blip2": {
+        "model_id": "Salesforce/blip2-opt-2.7b",
+        "backend": "blip2",
+        "description": "BLIP-2 OPT-2.7B — ~5 GB VRAM float16, fast, supports text hints",
     },
     "joycaption": {
         "model_id": "fancyfeast/llama-joycaption-alpha-two-hf-llava",
@@ -190,6 +196,31 @@ def load_joycaption(model_id: str, device: str):
     model = LlavaForConditionalGeneration.from_pretrained(
         model_id,
         quantization_config=bnb_config,
+        device_map="auto",
+    )
+    model.eval()
+    return processor, model
+
+
+def load_blip2(model_id: str, device: str):
+    """Load BLIP-2 processor + model (Salesforce/blip2-opt-2.7b).
+
+    BLIP-2 is a lightweight, fast captioner that also accepts free-form text
+    prompts (VQA-style).  This makes it the only model other than JoyCaption
+    that can use the --refine reference hint.  The 2.7B OPT backbone fits
+    comfortably in ~5 GB VRAM when loaded as float16.
+    """
+    import torch
+    from transformers import Blip2Processor, Blip2ForConditionalGeneration
+
+    print(f"  Loading BLIP-2 processor from: {model_id}")
+    processor = Blip2Processor.from_pretrained(model_id)
+
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    print(f"  Loading BLIP-2 model ({dtype}): {model_id}")
+    model = Blip2ForConditionalGeneration.from_pretrained(
+        model_id,
+        torch_dtype=dtype,
         device_map="auto",
     )
     model.eval()
@@ -317,8 +348,50 @@ def _caption_joycaption(processor, model, image, device: str, max_new_tokens: in
 # Core processing logic
 # ---------------------------------------------------------------------------
 
+def _caption_blip2(processor, model, image, device: str, max_new_tokens: int = 150,
+                    reference_text: str = "") -> str:
+    """Generate a caption with BLIP-2.
+
+    BLIP-2 accepts optional free-form text prompts, so refine mode is fully
+    supported.  When *reference_text* is provided the existing caption is
+    embedded as a VQA-style question so the model can improve it.
+    """
+    import torch
+
+    dtype = torch.float16 if device == "cuda" else torch.float32
+
+    if reference_text:
+        # VQA-style prompt: feed the old caption as context
+        prompt = (
+            f"Question: This image was previously described as: \"{reference_text.strip()}\". "
+            "Provide a more detailed and accurate description of this Chinese ink wash painting. "
+            "Answer:"
+        )
+    else:
+        prompt = (
+            "Question: Describe this image in detail for use as a generative AI training caption. "
+            "The image is a Chinese ink wash painting. Answer:"
+        )
+
+    inputs = processor(images=image, text=prompt, return_tensors="pt").to(device, dtype)
+
+    with torch.no_grad():
+        generated_ids = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            num_beams=5,
+            repetition_penalty=1.5,
+        )
+
+    # Decode only the newly generated tokens (strip the prompt)
+    generated = generated_ids[0][inputs["input_ids"].shape[1]:]
+    return processor.decode(generated, skip_special_tokens=True).strip()
+
+
 CAPTION_DISPATCH = {
     "florence-2": _caption_florence2,
+    "blip2": _caption_blip2,
     "joycaption": _caption_joycaption,
 }
 
@@ -587,6 +660,8 @@ def main() -> None:
         backend = cfg["backend"]
         if backend == "florence-2":
             processor, model = load_florence2(cfg["model_id"], device)
+        elif backend == "blip2":
+            processor, model = load_blip2(cfg["model_id"], device)
         elif backend == "joycaption":
             processor, model = load_joycaption(cfg["model_id"], device)
         else:
