@@ -28,7 +28,8 @@
 
 # %%
 # Run once in the Python 3.11.2 kernel, then restart the kernel if packages changed.
-%pip install --user --quiet "diffusers==0.39.0" "transformers==5.13.0" "accelerate==1.14.0" "peft==0.19.1" "safetensors>=0.5.3" "sentencepiece>=0.2.0" "huggingface_hub>=0.34.0" "Pillow>=10.0" "tqdm>=4.66" "matplotlib>=3.8" "psutil>=5.9" "ipykernel>=6.29"
+# Notebook-only dependency installation:
+# %pip install --user --quiet "diffusers==0.39.0" "transformers==5.13.0" "accelerate==1.14.0" "peft==0.19.1" "safetensors>=0.5.3" "sentencepiece>=0.2.0" "huggingface_hub>=0.34.0" "Pillow>=10.0" "tqdm>=4.66" "matplotlib>=3.8" "psutil>=5.9" "ipykernel>=6.29"
 
 # %%
 import gc

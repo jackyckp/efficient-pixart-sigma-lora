@@ -37,6 +37,7 @@ Notes
   - Total pages scraped is controlled by `total_pages` in main() (default 17).
 """
 
+import os
 import re
 import time
 import requests

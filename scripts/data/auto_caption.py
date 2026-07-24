@@ -15,7 +15,7 @@ Supported models
 Usage examples
 --------------
   # Caption a single folder with Florence-2 (default)
-  python auto_caption.py --dir data/dataset_300
+  python scripts/data/auto_caption.py --dir data/ink
 
   # Caption all dataset subfolders inside data/
   python auto_caption.py --dir data --all-subsets --model florence-2
@@ -502,9 +502,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dir",
         type=Path,
-        default=Path("./data/dataset_300"),
+        default=Path("./data/ink"),
         metavar="PATH",
-        help="Path to an image folder (default: ./data/dataset_300).",
+        help="Path to an image folder (default: ./data/ink).",
     )
     parser.add_argument(
         "--all-subsets",
