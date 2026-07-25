@@ -39,6 +39,9 @@ EXPECTED_SEQUENCE_LENGTH = 300
 EXPECTED_EMBEDDING_DIM = 4096
 EXPECTED_DATASET_SIZE = 260
 SUPPORTED_DATASET_SIZES = (50, 100, 260)
+EXPECTED_PAIRED_LATENT_CACHE = (
+    "image_latents_n260_res512_b9d3c2d1d404.pt"
+)
 PROMPT_CACHE_KEYS = {
     "format_version",
     "sample_ids",
@@ -92,6 +95,8 @@ class PromptFeatures:
     attention_masks: torch.Tensor
     text_encoder_model: str
     manifest_fingerprint: str
+    validation_summary_path: Path | None
+    validation_summary: dict[str, Any] | None
 
 
 def repository_root() -> Path:
@@ -468,6 +473,7 @@ def load_prompt_cache(
     selected_sample_ids: Sequence[str],
     *,
     expected_fingerprint: str = EXPECTED_MANIFEST_FINGERPRINT,
+    validation_summary_path: str | Path | None = None,
 ) -> PromptFeatures:
     cache_path = Path(path).resolve()
     if not cache_path.is_file():
@@ -550,6 +556,43 @@ def load_prompt_cache(
             "text_encoder_model must be a non-empty string."
         )
 
+    validation_path: Path | None = None
+    validation_summary: dict[str, Any] | None = None
+    if validation_summary_path is not None:
+        validation_path = Path(validation_summary_path).resolve()
+        if not validation_path.is_file():
+            raise FileNotFoundError(
+                "Prompt validation summary does not exist: "
+                f"{validation_path}"
+            )
+        validation_summary = json.loads(
+            validation_path.read_text(encoding="utf-8")
+        )
+        if not isinstance(validation_summary, dict):
+            raise AssetValidationError(
+                "Prompt validation summary must be a JSON object."
+            )
+        summary_expectations = {
+            "status": "PASS",
+            "cache_file": cache_path.name,
+            "num_samples": len(sample_ids),
+            "prompt_embeds_shape": list(expected_embed_shape),
+            "prompt_embeds_dtype": "torch.float16",
+            "attention_masks_shape": list(expected_mask_shape),
+            "attention_masks_dtype": str(attention_masks.dtype),
+            "all_finite": True,
+            "manifest_fingerprint": expected_fingerprint,
+            "text_encoder_model": text_encoder_model,
+            "transformer_model": TRANSFORMER_MODEL,
+            "paired_clean_latent_cache": EXPECTED_PAIRED_LATENT_CACHE,
+        }
+        for key, expected in summary_expectations.items():
+            actual = validation_summary.get(key)
+            if actual != expected:
+                raise AssetValidationError(
+                    f"Prompt validation summary {key!r}: expected "
+                    f"{expected!r}, got {actual!r}."
+                )
     index_by_id = {
         sample_id: index for index, sample_id in enumerate(sample_ids)
     }
@@ -578,6 +621,8 @@ def load_prompt_cache(
         ).contiguous(),
         text_encoder_model=text_encoder_model,
         manifest_fingerprint=cache["manifest_fingerprint"],
+        validation_summary_path=validation_path,
+        validation_summary=validation_summary,
     )
 
 
@@ -956,6 +1001,16 @@ def run_training(
         "latent_member": latent_bundle.latent_member,
         "manifest_fingerprint": EXPECTED_MANIFEST_FINGERPRINT,
         "prompt_cache": str(prompt_features.path),
+        "prompt_validation_summary": (
+            str(prompt_features.validation_summary_path)
+            if prompt_features.validation_summary_path
+            else None
+        ),
+        "prompt_validation_status": (
+            prompt_features.validation_summary.get("status")
+            if prompt_features.validation_summary
+            else None
+        ),
         "prompt_text_encoder_model": prompt_features.text_encoder_model,
         "prompt_manifest_fingerprint": (
             prompt_features.manifest_fingerprint
@@ -1013,7 +1068,17 @@ def build_parser() -> argparse.ArgumentParser:
             root
             / "data"
             / "features"
-            / "prompt_embeddings_512.pt"
+            / "t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt"
+        ),
+    )
+    parser.add_argument(
+        "--prompt-validation-summary",
+        type=Path,
+        default=(
+            root
+            / "data"
+            / "features"
+            / "validation_summary.json"
         ),
     )
     parser.add_argument(
@@ -1110,6 +1175,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             prompt_features = load_prompt_cache(
                 args.prompt_cache,
                 selected_ids,
+                validation_summary_path=args.prompt_validation_summary,
             )
             print(
                 "PASS: prompt cache covers selected subset "
@@ -1127,6 +1193,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prompt_features = load_prompt_cache(
             args.prompt_cache,
             selected_ids,
+            validation_summary_path=args.prompt_validation_summary,
         )
     except PromptCacheMissingError as exc:
         parser.error(str(exc))

@@ -13,7 +13,14 @@ Current contract:
 - Python 3.11.2 and PixArt-Sigma 512.
 - Canonical dataset size: 260 image-caption pairs; experiments use deterministic nested 50 / 100 / 260 subsets.
 - Canonical latent cache: `[260, 4, 64, 64]`, float16, clean scaled latents, fingerprint `b9d3c2d1d404`.
-- Prompt embeddings are a separate required cache. They are intentionally not fabricated by this repository.
+- The validated T5 prompt cache is available locally under `data/features/` and remains Git-ignored because it is about 642 MB.
+
+Before training on a new checkout, obtain these two Git-ignored files from the project shared storage:
+
+```text
+data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt
+data/features/validation_summary.json
+```
 
 Validate all assets that are available now without downloading a model:
 
@@ -21,19 +28,33 @@ Validate all assets that are available now without downloading a model:
 python scripts/training/train_local_latent_lora.py --validate-assets-only
 ```
 
-After `data/features/prompt_embeddings_512.pt` is provided, run the local smoke test:
+Run the local smoke test with the validated prompt cache:
 
 ```powershell
 python scripts/training/train_local_latent_lora.py `
   --latent-bundle data/archives/clean_latents_512.zip `
-  --prompt-cache data/features/prompt_embeddings_512.pt `
+  --prompt-cache data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt `
   --num-images 50 `
   --rank 8 `
-  --max-train-steps 10 `
-  --output-dir outputs/local_smoke/r8_n50
+  --max-train-steps 100 `
+  --output-dir outputs/local_smoke/r8_n50_steps100
 ```
 
-This performs 10 optimizer updates, saves a PEFT adapter, reloads it onto a fresh base transformer, and generates one 512 x 512 image with the first selected cached training embedding. See `data/README.md` for the prompt-cache schema and `notebooks/training/pixart_local_latent_smoke.ipynb` for the thin notebook entry point.
+This performs 100 optimizer updates, saves a PEFT adapter, reloads it onto a fresh base transformer, and generates one 512 x 512 image with the first selected cached training embedding. See `data/README.md` for the prompt-cache schema and `notebooks/training/pixart_local_latent_smoke.ipynb` for the thin notebook entry point.
+
+Generate from a new prompt after training:
+
+```powershell
+python scripts/inference/generate_with_prompt.py `
+  --prompt "A majestic black stallion galloping across an open plain, Chinese ink wash painting style, Sumi-e" `
+  --adapter outputs/local_smoke/r8_n50_steps100/lora_adapter `
+  --output outputs/unseen_galloping_stallion.png `
+  --seed 456 `
+  --num-inference-steps 20 `
+  --guidance-scale 1.0
+```
+
+The inference command encodes the supplied text with T5, releases T5 memory, fresh-loads the base transformer plus LoRA adapter, writes a 512 x 512 PNG and adjacent JSON metadata, and rejects an exact training-caption match unless `--allow-seen-prompt` is supplied.
 
 ## Data Source
 
@@ -172,7 +193,7 @@ for rank in "${RANKS[@]}"; do
     
     python scripts/training/train_local_latent_lora.py \
       --latent-bundle="data/archives/clean_latents_512.zip" \
-      --prompt-cache="data/features/prompt_embeddings_512.pt" \
+      --prompt-cache="data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt" \
       --num-images=$num_images \
       --rank=$rank \
       --output-dir="./outputs/lora_r${rank}_n${num_images}" \

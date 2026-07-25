@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -48,6 +49,44 @@ def _save_cache(tmp_path: Path, cache: dict[str, object]) -> Path:
     torch.save(cache, path)
     return path
 
+def test_prompt_validation_summary_is_enforced(tmp_path: Path) -> None:
+    selected = ["sample/a", "sample/b"]
+    cache_path = _save_cache(tmp_path, _prompt_cache(selected))
+    summary = {
+        "status": "PASS",
+        "cache_file": cache_path.name,
+        "num_samples": 2,
+        "prompt_embeds_shape": [2, 300, 4096],
+        "prompt_embeds_dtype": "torch.float16",
+        "attention_masks_shape": [2, 300],
+        "attention_masks_dtype": "torch.bool",
+        "all_finite": True,
+        "manifest_fingerprint": EXPECTED_MANIFEST_FINGERPRINT,
+        "text_encoder_model": "test/t5",
+        "transformer_model": (
+            "PixArt-alpha/PixArt-Sigma-XL-2-512-MS"
+        ),
+        "paired_clean_latent_cache": (
+            "image_latents_n260_res512_b9d3c2d1d404.pt"
+        ),
+    }
+    summary_path = tmp_path / "validation_summary.json"
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+    features = load_prompt_cache(
+        cache_path,
+        selected,
+        validation_summary_path=summary_path,
+    )
+    assert features.validation_summary["status"] == "PASS"
+
+    summary["manifest_fingerprint"] = "wrong"
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(AssetValidationError, match="validation summary"):
+        load_prompt_cache(
+            cache_path,
+            selected,
+            validation_summary_path=summary_path,
+        )
 
 def test_archives_are_safe_and_uncorrupted() -> None:
     for path in (IMAGE_ARCHIVE, LATENT_BUNDLE):

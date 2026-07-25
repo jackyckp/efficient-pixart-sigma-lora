@@ -26,13 +26,14 @@ The local trainer reads the latent `.pt` member in memory. It does not extract t
 
 ## Prompt embedding cache contract
 
-The prompt cache is not included yet. Its expected default path is:
+The validated local prompt cache is stored at:
 
 ```text
-data/features/prompt_embeddings_512.pt
+data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt
+data/features/validation_summary.json
 ```
 
-It must be loadable with `torch.load(path, map_location="cpu", weights_only=True)` and contain exactly this public contract (additional keys are allowed):
+Both files are intentionally Git-ignored; transfer them through the project shared storage after cloning or pulling the repository. The validation summary must report `PASS` and match the cache filename, shapes, dtypes, models, paired latent cache, and manifest fingerprint. The cache must be loadable with `torch.load(path, map_location="cpu", weights_only=True)` and contain exactly this public contract (additional keys are allowed):
 
 ```python
 {
@@ -66,18 +67,18 @@ Validate the source archive, latent bundle, and any prompt cache currently prese
 python scripts/training/train_local_latent_lora.py --validate-assets-only
 ```
 
-Until the prompt cache exists, success ends with `PENDING: prompt embedding cache is not present yet` and exit code 0. This means the available image and latent assets passed; it does not claim the GPU training smoke test passed.
+With both feature files present, validation succeeds only after the prompt cache and its validation summary agree with the image and latent contracts.
 
-After the prompt cache is ready:
+Run the local training smoke test:
 
 ```powershell
 python scripts/training/train_local_latent_lora.py `
   --latent-bundle data/archives/clean_latents_512.zip `
-  --prompt-cache data/features/prompt_embeddings_512.pt `
+  --prompt-cache data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt `
   --num-images 50 `
   --rank 8 `
-  --max-train-steps 10 `
-  --output-dir outputs/local_smoke/r8_n50
+  --max-train-steps 100 `
+  --output-dir outputs/local_smoke/r8_n50_steps100
 ```
 
 The deterministic subset is ranked by `sha256(seed + sample_id)` semantics in the trainer, so the default seed 42 produces nested 50 / 100 / 260 experiment sets. Each run writes `subset_manifest.json`; completed training additionally writes the PEFT adapter, `run_metadata.json`, and `reload_generation.png` under the ignored `outputs/` directory.
