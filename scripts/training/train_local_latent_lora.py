@@ -38,7 +38,6 @@ EXPECTED_LATENT_SHAPE = (4, 64, 64)
 EXPECTED_SEQUENCE_LENGTH = 300
 EXPECTED_EMBEDDING_DIM = 4096
 EXPECTED_DATASET_SIZE = 260
-SUPPORTED_DATASET_SIZES = (50, 100, 260)
 EXPECTED_PAIRED_LATENT_CACHE = (
     "image_latents_n260_res512_b9d3c2d1d404.pt"
 )
@@ -47,6 +46,8 @@ PROMPT_CACHE_KEYS = {
     "sample_ids",
     "prompt_embeds",
     "attention_masks",
+    "empty_prompt_embeds",
+    "empty_prompt_attention_mask",
     "max_sequence_length",
     "text_encoder_model",
     "manifest_fingerprint",
@@ -93,6 +94,8 @@ class PromptFeatures:
     sample_ids: tuple[str, ...]
     prompt_embeds: torch.Tensor
     attention_masks: torch.Tensor
+    empty_prompt_embeds: torch.Tensor
+    empty_prompt_attention_mask: torch.Tensor
     text_encoder_model: str
     manifest_fingerprint: str
     validation_summary_path: Path | None
@@ -453,13 +456,33 @@ def deterministic_subset_ids(
     sample_ids: Sequence[str],
     num_images: int,
     seed: int,
+    category: str | None = None,
 ) -> tuple[str, ...]:
-    if num_images <= 0 or num_images > len(sample_ids):
+    pool = tuple(sample_ids)
+    if category is not None:
+        normalized_category = category.strip().strip("/")
+        if not normalized_category:
+            raise AssetValidationError("category may not be empty.")
+        prefix = f"{normalized_category}/"
+        pool = tuple(
+            sample_id
+            for sample_id in pool
+            if sample_id.startswith(prefix)
+        )
+        if not pool:
+            raise AssetValidationError(
+                f"No samples found for category {normalized_category!r}."
+            )
+    if num_images <= 0 or num_images > len(pool):
+        pool_label = (
+            f"category {category!r}" if category is not None else "dataset"
+        )
         raise AssetValidationError(
-            f"num_images must be in [1, {len(sample_ids)}], got {num_images}."
+            f"num_images must be in [1, {len(pool)}] for {pool_label}, "
+            f"got {num_images}."
         )
     ranked = sorted(
-        sample_ids,
+        pool,
         key=lambda sample_id: (
             hashlib.sha256(f"{seed}{sample_id}".encode("utf-8")).digest(),
             sample_id,
@@ -503,6 +526,8 @@ def load_prompt_cache(
     )
     prompt_embeds = cache["prompt_embeds"]
     attention_masks = cache["attention_masks"]
+    empty_prompt_embeds = cache["empty_prompt_embeds"]
+    empty_prompt_attention_mask = cache["empty_prompt_attention_mask"]
     if not isinstance(prompt_embeds, torch.Tensor):
         raise AssetValidationError("prompt_embeds must be a tensor.")
     if not isinstance(attention_masks, torch.Tensor):
@@ -539,6 +564,45 @@ def load_prompt_cache(
     if not bool(((attention_masks == 0) | (attention_masks == 1)).all()):
         raise AssetValidationError(
             "attention_masks may only contain 0/1 values."
+        )
+    expected_empty_embed_shape = (
+        1,
+        EXPECTED_SEQUENCE_LENGTH,
+        EXPECTED_EMBEDDING_DIM,
+    )
+    expected_empty_mask_shape = (1, EXPECTED_SEQUENCE_LENGTH)
+    if not isinstance(empty_prompt_embeds, torch.Tensor) or tuple(
+        empty_prompt_embeds.shape
+    ) != expected_empty_embed_shape:
+        raise AssetValidationError(
+            "empty_prompt_embeds must be a tensor with shape "
+            f"{expected_empty_embed_shape}."
+        )
+    if empty_prompt_embeds.dtype != torch.float16 or not bool(
+        torch.isfinite(empty_prompt_embeds).all()
+    ):
+        raise AssetValidationError(
+            "empty_prompt_embeds must be finite float16."
+        )
+    if not isinstance(empty_prompt_attention_mask, torch.Tensor) or tuple(
+        empty_prompt_attention_mask.shape
+    ) != expected_empty_mask_shape:
+        raise AssetValidationError(
+            "empty_prompt_attention_mask must be a tensor with shape "
+            f"{expected_empty_mask_shape}."
+        )
+    if empty_prompt_attention_mask.dtype not in (torch.bool, torch.int64):
+        raise AssetValidationError(
+            "empty_prompt_attention_mask must be bool or int64."
+        )
+    if not bool(
+        (
+            (empty_prompt_attention_mask == 0)
+            | (empty_prompt_attention_mask == 1)
+        ).all()
+    ):
+        raise AssetValidationError(
+            "empty_prompt_attention_mask may only contain 0/1 values."
         )
     if cache["max_sequence_length"] != EXPECTED_SEQUENCE_LENGTH:
         raise AssetValidationError(
@@ -619,6 +683,8 @@ def load_prompt_cache(
         attention_masks=attention_masks.index_select(
             0, selected_indices
         ).contiguous(),
+        empty_prompt_embeds=empty_prompt_embeds.contiguous(),
+        empty_prompt_attention_mask=empty_prompt_attention_mask.contiguous(),
         text_encoder_model=text_encoder_model,
         manifest_fingerprint=cache["manifest_fingerprint"],
         validation_summary_path=validation_path,
@@ -659,6 +725,54 @@ def _write_json(path: Path, payload: Any) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _save_lora_checkpoint(
+    *,
+    accelerator: Any,
+    transformer: Any,
+    output_dir: Path,
+    args: argparse.Namespace,
+    global_step: int,
+    loss_value: float,
+) -> str:
+    checkpoint_dir = (
+        output_dir / "checkpoints" / f"step_{global_step:06d}"
+    )
+    checkpoint_adapter_dir = checkpoint_dir / "lora_adapter"
+    accelerator.wait_for_everyone()
+    if accelerator.is_main_process:
+        checkpoint_adapter_dir.mkdir(parents=True, exist_ok=True)
+        accelerator.unwrap_model(transformer).save_pretrained(
+            checkpoint_adapter_dir,
+            safe_serialization=True,
+        )
+        checkpoint_metadata = {
+            "status": "CHECKPOINT",
+            "optimizer_step": global_step,
+            "loss": loss_value,
+            "rank": args.rank,
+            "lora_alpha": args.lora_alpha,
+            "learning_rate": args.learning_rate,
+            "num_images": args.num_images,
+            "dataset_category": args.category,
+            "seed": args.seed,
+            "inference_steps": args.inference_steps,
+            "guidance_scale": args.guidance_scale,
+            "manifest_fingerprint": EXPECTED_MANIFEST_FINGERPRINT,
+            "adapter": str(checkpoint_adapter_dir),
+        }
+        _write_json(
+            checkpoint_dir / "checkpoint_metadata.json",
+            checkpoint_metadata,
+        )
+        _write_json(
+            output_dir / "checkpoints" / "latest_checkpoint.json",
+            checkpoint_metadata,
+        )
+    accelerator.wait_for_everyone()
+    print(f"CHECKPOINT: step={global_step} path={checkpoint_dir}")
+    return str(checkpoint_dir)
 
 
 def _package_version(name: str) -> str:
@@ -799,6 +913,7 @@ def run_training(
 
     global_step = 0
     loss_history: list[float] = []
+    checkpoint_paths: list[str] = []
     start_time = time.perf_counter()
     torch.cuda.reset_peak_memory_stats()
     transformer.train()
@@ -892,10 +1007,29 @@ def run_training(
                     accelerator.gather(loss.detach()).mean().item()
                 )
                 loss_history.append(loss_value)
-                print(
-                    f"optimizer_step={global_step:02d}/"
-                    f"{args.max_train_steps} loss={loss_value:.6f}"
-                )
+                if (
+                    global_step == 1
+                    or global_step % args.log_every_steps == 0
+                    or global_step == args.max_train_steps
+                ):
+                    print(
+                        f"optimizer_step={global_step}/"
+                        f"{args.max_train_steps} loss={loss_value:.6f}"
+                    )
+                if (
+                    args.checkpoint_every_steps > 0
+                    and global_step % args.checkpoint_every_steps == 0
+                ):
+                    checkpoint_paths.append(
+                        _save_lora_checkpoint(
+                            accelerator=accelerator,
+                            transformer=transformer,
+                            output_dir=output_dir,
+                            args=args,
+                            global_step=global_step,
+                            loss_value=loss_value,
+                        )
+                    )
             if global_step >= args.max_train_steps:
                 break
 
@@ -965,21 +1099,32 @@ def run_training(
         dtype=torch.float16,
     )
     inference_mask = prompt_features.attention_masks[:1].to("cuda")
+    generation_kwargs: dict[str, Any] = {
+        "prompt": None,
+        "negative_prompt": None,
+        "prompt_embeds": inference_embeds,
+        "prompt_attention_mask": inference_mask,
+        "num_inference_steps": args.inference_steps,
+        "guidance_scale": args.guidance_scale,
+        "height": EXPECTED_RESOLUTION,
+        "width": EXPECTED_RESOLUTION,
+        "use_resolution_binning": False,
+    }
+    if args.guidance_scale > 1.0:
+        generation_kwargs.update(
+            negative_prompt_embeds=(
+                prompt_features.empty_prompt_embeds.to("cuda")
+            ),
+            negative_prompt_attention_mask=(
+                prompt_features.empty_prompt_attention_mask.to("cuda")
+            ),
+        )
     generator = torch.Generator(device="cuda").manual_seed(args.seed)
+    generation_kwargs["generator"] = generator
     torch.cuda.synchronize()
     inference_start = time.perf_counter()
     with torch.inference_mode():
-        image = pipeline(
-            prompt=None,
-            prompt_embeds=inference_embeds,
-            prompt_attention_mask=inference_mask,
-            num_inference_steps=args.inference_steps,
-            guidance_scale=1.0,
-            height=EXPECTED_RESOLUTION,
-            width=EXPECTED_RESOLUTION,
-            use_resolution_binning=False,
-            generator=generator,
-        ).images[0]
+        image = pipeline(**generation_kwargs).images[0]
     torch.cuda.synchronize()
     inference_seconds = time.perf_counter() - inference_start
     generated_path = output_dir / "reload_generation.png"
@@ -1015,6 +1160,8 @@ def run_training(
         "prompt_manifest_fingerprint": (
             prompt_features.manifest_fingerprint
         ),
+        "run_role": args.run_role,
+        "dataset_category": args.category,
         "num_images": len(selected_ids),
         "selected_sample_ids": list(selected_ids),
         "rank": args.rank,
@@ -1024,11 +1171,14 @@ def run_training(
         "seed": args.seed,
         "loss_history": loss_history,
         "train_seconds": train_seconds,
+        "seconds_per_optimizer_step": train_seconds / global_step,
+        "checkpoint_every_steps": args.checkpoint_every_steps,
+        "checkpoints": checkpoint_paths,
         "peak_allocated_vram_gb": peak_vram_gb,
         "inference_sample_id": selected_ids[0],
         "inference_prompt": selected_manifest[0]["caption"],
         "inference_steps": args.inference_steps,
-        "guidance_scale": 1.0,
+        "guidance_scale": args.guidance_scale,
         "inference_seconds": inference_seconds,
         "generated_image": str(generated_path),
     }
@@ -1084,8 +1234,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--num-images",
         type=int,
-        choices=SUPPORTED_DATASET_SIZES,
         default=50,
+        help=(
+            "Number of deterministic samples after optional category "
+            "filtering."
+        ),
+    )
+    parser.add_argument(
+        "--category",
+        default=None,
+        help=(
+            "Optional sample-ID category prefix, for example 'plant'. "
+            "The current canonical archive contains 209 plant samples."
+        ),
     )
     parser.add_argument("--rank", type=int, default=8)
     parser.add_argument("--lora-alpha", type=int, default=None)
@@ -1104,7 +1265,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="fp16",
     )
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--inference-steps", type=int, default=10)
+    parser.add_argument("--inference-steps", type=int, default=20)
+    parser.add_argument("--guidance-scale", type=float, default=1.0)
+    parser.add_argument("--checkpoint-every-steps", type=int, default=0)
+    parser.add_argument("--log-every-steps", type=int, default=10)
+    parser.add_argument("--run-role", default="lora_smoke")
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -1136,10 +1301,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--rank must be positive.")
     if args.max_train_steps <= 0:
         parser.error("--max-train-steps must be positive.")
+    if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
+        parser.error("--learning-rate must be finite and positive.")
     if args.train_batch_size <= 0:
         parser.error("--train-batch-size must be positive.")
     if args.gradient_accumulation_steps <= 0:
         parser.error("--gradient-accumulation-steps must be positive.")
+    if args.inference_steps <= 0:
+        parser.error("--inference-steps must be positive.")
+    if not math.isfinite(args.guidance_scale) or args.guidance_scale < 1.0:
+        parser.error("--guidance-scale must be finite and at least 1.0.")
+    if args.checkpoint_every_steps < 0:
+        parser.error("--checkpoint-every-steps may not be negative.")
+    if (
+        args.checkpoint_every_steps > args.max_train_steps
+    ):
+        parser.error("--checkpoint-every-steps exceeds training length.")
+    if args.log_every_steps <= 0:
+        parser.error("--log-every-steps must be positive.")
     if args.lora_alpha is None:
         args.lora_alpha = args.rank
     if args.output_dir is None:
@@ -1147,7 +1326,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             repository_root()
             / "outputs"
             / "local_smoke"
-            / f"r{args.rank}_n{args.num_images}"
+            / (
+                f"{args.category or 'all'}_r{args.rank}_"
+                f"n{args.num_images}"
+            )
         )
 
     latent_bundle = load_latent_bundle(args.latent_bundle)
@@ -1159,6 +1341,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         latent_bundle.sample_ids,
         args.num_images,
         args.seed,
+        args.category,
     )
     print(
         "PASS: local image and latent assets\n"
@@ -1167,7 +1350,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"Latents: {list(latent_bundle.latents.shape)} "
         f"{latent_bundle.latents.dtype}; "
         f"fingerprint: {EXPECTED_MANIFEST_FINGERPRINT}\n"
-        f"Selected deterministic subset: {len(selected_ids)} samples"
+        f"Selected deterministic subset: {len(selected_ids)} samples; "
+        f"category: {args.category or 'all'}"
     )
 
     if args.validate_assets_only:

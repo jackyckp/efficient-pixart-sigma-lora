@@ -30,7 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Encode a new text prompt with T5, release T5, then generate "
-            "with the local PixArt-Sigma LoRA adapter."
+            "with either the local PixArt-Sigma LoRA adapter or the "
+            "unmodified base model."
         )
     )
     parser.add_argument("--prompt", required=True)
@@ -56,6 +57,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--guidance-scale", type=float, default=1.0)
     parser.add_argument("--t5-gpu-memory", default="4GiB")
     parser.add_argument("--t5-cpu-memory", default="8GiB")
+    parser.add_argument(
+        "--base-model-only",
+        action="store_true",
+        help=(
+            "Skip the LoRA adapter and generate with the original "
+            "PixArt-Sigma transformer."
+        ),
+    )
     parser.add_argument("--allow-seen-prompt", action="store_true")
     parser.add_argument("--transformer-model", default=TRANSFORMER_MODEL)
     parser.add_argument("--component-model", default=COMPONENT_MODEL)
@@ -182,18 +191,24 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("--guidance-scale must be finite and at least 1.0.")
 
     from diffusers import PixArtSigmaPipeline, PixArtTransformer2DModel
-    from peft import PeftModel
 
-    adapter_dir = args.adapter.resolve()
-    if not (adapter_dir / "adapter_config.json").is_file():
-        raise FileNotFoundError(f"PEFT adapter not found: {adapter_dir}")
+    adapter_dir: Path | None = None
+    if args.base_model_only:
+        prompt_audit: dict[str, object] = {
+            "skipped": True,
+            "reason": "base-model-only mode has no training subset.",
+        }
+    else:
+        adapter_dir = args.adapter.resolve()
+        if not (adapter_dir / "adapter_config.json").is_file():
+            raise FileNotFoundError(f"PEFT adapter not found: {adapter_dir}")
+        prompt_audit = audit_unseen_prompt(
+            args.prompt,
+            adapter_dir,
+            args.allow_seen_prompt,
+        )
     output_path = args.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    prompt_audit = audit_unseen_prompt(
-        args.prompt,
-        adapter_dir,
-        args.allow_seen_prompt,
-    )
 
     offload_dir = output_path.parent / "t5_offload"
     (
@@ -210,13 +225,20 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         torch_dtype=torch.float16,
         use_safetensors=True,
     )
-    reloaded_transformer = PeftModel.from_pretrained(
-        base_transformer,
-        adapter_dir,
-        is_trainable=False,
-    ).eval()
-    loaded_rank = reloaded_transformer.peft_config["default"].r
-    transformer = reloaded_transformer.get_base_model().eval()
+    if args.base_model_only:
+        loaded_rank: int | None = None
+        transformer = base_transformer.eval()
+    else:
+        from peft import PeftModel
+
+        assert adapter_dir is not None
+        reloaded_transformer = PeftModel.from_pretrained(
+            base_transformer,
+            adapter_dir,
+            is_trainable=False,
+        ).eval()
+        loaded_rank = reloaded_transformer.peft_config["default"].r
+        transformer = reloaded_transformer.get_base_model().eval()
     pipe = PixArtSigmaPipeline.from_pretrained(
         args.component_model,
         transformer=transformer,
@@ -258,7 +280,10 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         "prompt": args.prompt,
         "negative_prompt": args.negative_prompt,
         "prompt_audit": prompt_audit,
-        "adapter": str(adapter_dir),
+        "generation_mode": (
+            "base_model" if args.base_model_only else "lora_adapter"
+        ),
+        "adapter": str(adapter_dir) if adapter_dir else None,
         "adapter_rank": loaded_rank,
         "transformer_model": args.transformer_model,
         "component_model": args.component_model,

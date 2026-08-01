@@ -56,6 +56,35 @@ python scripts/inference/generate_with_prompt.py `
 
 The inference command encodes the supplied text with T5, releases T5 memory, fresh-loads the base transformer plus LoRA adapter, writes a 512 x 512 PNG and adjacent JSON metadata, and rejects an exact training-caption match unless `--allow-seen-prompt` is supplied.
 
+## 20-step ink-wash style-teacher sweep
+
+The teacher stage trains standard diffusion LoRA adapters on all 260 validated images across the four canonical datasets (`plant=209`, `animal=30`, `web=11`, `others=10`). Every model is fresh-reload tested at **20 inference steps** and **guidance scale 1.5**. Classifier-free guidance uses the validated T5 `empty_prompt_embeds` and `empty_prompt_attention_mask` already stored in the prompt cache, so the sweep does not reload T5.
+
+The four models run sequentially in separate Python processes:
+
+- LoRA ranks: 4, 8, 16, and 32 (`lora_alpha=rank`).
+- Learning rate: `1e-5` for every rank.
+- Data: all 260 samples, batch size 1, seed 42.
+- Training length: 10,000 optimizer updates per model.
+- Checkpoints: PEFT adapter plus metadata every 1,000 updates, including step 10,000.
+- Acceptance inference: 20 steps, guidance 1.5, same deterministic first sample.
+
+The earlier smoke measured `0.70294 s/update`, which gives about 7.81 hours for 40,000 updates before rank-dependent and checkpoint I/O overhead.
+
+Preview the exact four child commands without training:
+
+```powershell
+python scripts/training/train_style_teacher_sweep.py `
+  --ranks 4 8 16 32 `
+  --learning-rate 1e-5 `
+  --num-images 260 `
+  --max-train-steps 10000 `
+  --checkpoint-every-steps 1000 `
+  --output-root outputs/style_teacher/all_n260_steps10000 `
+  --dry-run
+```
+
+Remove `--dry-run` to start training. The runner validates image, latent, prompt, empty-prompt CFG, and dataset contracts before loading a base model; it stops on the first failed run and skips any already-completed matching model on restart. Checkpoints are written under each model's `checkpoints/step_XXXXXX/lora_adapter/`. The sweep root contains `sweep_plan.json` and incremental `sweep_summary.json`.
 ## Data Source
 
 This project uses a 260-image ink-wash corpus collected from Tappu via [scripts/data/download_tappu.py](scripts/data/download_tappu.py). Canonical inputs are tracked as validated ZIP archives under `data/archives/`; extracted folders remain ignored.

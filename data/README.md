@@ -41,6 +41,8 @@ Both files are intentionally Git-ignored; transfer them through the project shar
     "sample_ids": list[str],
     "prompt_embeds": Tensor[N, 300, 4096],  # float16, CPU
     "attention_masks": Tensor[N, 300],      # bool or int64, CPU
+    "empty_prompt_embeds": Tensor[1, 300, 4096],  # float16, CPU
+    "empty_prompt_attention_mask": Tensor[1, 300], # bool or int64
     "max_sequence_length": 300,
     "text_encoder_model": str,
     "manifest_fingerprint": "b9d3c2d1d404",
@@ -54,6 +56,8 @@ Rules enforced by `scripts/training/train_local_latent_lora.py`:
 - IDs must be non-empty and unique.
 - `prompt_embeds` must be float16, CPU-loadable, finite, and exactly `[N, 300, 4096]`.
 - `attention_masks` must be bool or int64, exactly `[N, 300]`, and contain only 0/1.
+- `empty_prompt_embeds` must be finite float16 with shape `[1, 300, 4096]`.
+- `empty_prompt_attention_mask` must be bool or int64 with shape `[1, 300]` and only 0/1; these tensors provide the unconditional CFG branch when guidance is greater than 1.0.
 - The manifest fingerprint must be `b9d3c2d1d404`.
 - Missing/duplicate IDs, missing keys, invalid shapes or dtypes, non-finite tensors, or a wrong fingerprint fail before any base model download.
 
