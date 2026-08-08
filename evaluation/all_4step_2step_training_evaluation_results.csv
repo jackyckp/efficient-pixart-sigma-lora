@@ -1,0 +1,13 @@
+teacher,experiment,inference_steps,selected_checkpoint,status,teacher_clip,student_clip,teacher_clip_retention_percent,student_to_real_cmmd,cmmd_acceptance_limit,student_median_denoise_seconds,latency_speedup,failed_gate
+Teacher A,baseline,4,2000,PASS,0.342987,0.343136,100.04,0.001416,0.001802,0.409507,4.96,
+Teacher A,baseline,2,7000,PASS,0.342987,0.332717,97.01,0.001735,0.001802,0.209678,10.44,
+Teacher A,extend4k,4,4000,PASS,0.342987,0.347484,101.31,0.001300,0.001802,0.465118,4.97,
+Teacher A,extend4k to fresh 2-step,2,7000,PASS,0.342987,0.339629,99.02,0.001533,0.001802,0.230812,10.02,
+Teacher A,extend6k,4,4500,FAIL,0.342987,0.349867,102.01,0.001248,0.001802,0.487221,4.17,median_latency_speedup_at_least_5x
+Teacher A,extend6k to fresh 2-step,2,7000,PASS,0.342987,0.340788,99.36,0.001522,0.001802,0.242082,8.39,
+Teacher B,baseline,4,2000,PASS,0.365052,0.355785,97.46,0.001261,0.001423,0.456595,6.29,
+Teacher B,baseline,2,7000,FAIL,0.365052,0.341889,93.65,0.001657,0.001423,0.210983,13.73,cmmd_at_most_1_5x_teacher
+Teacher B,extend4k,4,4000,PASS,0.365052,0.364811,99.93,0.001107,0.001423,0.488601,5.88,
+Teacher B,extend4k to fresh 2-step,2,7000,PASS,0.365052,0.351278,96.23,0.001412,0.001423,0.249947,11.49,
+Teacher B,extend6k,4,4500,PASS,0.365052,0.367417,100.65,0.001087,0.001423,0.479683,5.99,
+Teacher B,extend6k to fresh 2-step,2,7000,PASS,0.365052,0.353513,96.84,0.001394,0.001423,0.243779,11.78,

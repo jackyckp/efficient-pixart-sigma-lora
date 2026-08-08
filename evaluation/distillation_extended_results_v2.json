@@ -1,0 +1,76 @@
+{
+  "format_version": 2,
+  "status": "PASS_WITH_ONE_HISTORICAL_LATENCY_EXCEPTION",
+  "protocol": {
+    "evaluation_prompts": "evaluation/distillation_prompts_v1.json",
+    "evaluation_prompt_cache": "data/features/distill_eval_t5_prompts30_len300_fp16_v1.pt",
+    "prompt_count": 30,
+    "seeds_per_prompt": 4,
+    "images_per_model": 120,
+    "student_guidance_scale": 1.0,
+    "clip_model": "openai/clip-vit-base-patch32"
+  },
+  "results": [
+    {
+      "model": "Teacher A extended 4-step",
+      "selected_checkpoint": 4500,
+      "status": "FAIL_LATENCY_ONLY",
+      "clip": 0.34986679404973986,
+      "cmmd": 0.0012477636337280273,
+      "speedup": 4.168836661202274
+    },
+    {
+      "model": "Teacher A 2-step from extended 4-step",
+      "selected_checkpoint": 7000,
+      "status": "PASS",
+      "clip": 0.34078761289517084,
+      "cmmd": 0.0015219449996948242,
+      "speedup": 8.390305073972545
+    },
+    {
+      "model": "Teacher B 4k-extension 4-step",
+      "selected_checkpoint": 4000,
+      "status": "PASS",
+      "clip": 0.36481050327420234,
+      "cmmd": 0.0011067390441894531,
+      "speedup": 5.876294472629697
+    },
+    {
+      "model": "Teacher B 2-step from 4k-extension",
+      "selected_checkpoint": 7000,
+      "status": "PASS",
+      "clip": 0.3512777609129747,
+      "cmmd": 0.0014116764068603516,
+      "speedup": 11.487080881836626
+    },
+    {
+      "model": "Teacher B 6k-extension 4-step",
+      "selected_checkpoint": 4500,
+      "training_ceiling": 6000,
+      "status": "PASS",
+      "clip": 0.3674174234271049,
+      "teacher_clip_retention": 1.0064796035791503,
+      "cmmd": 0.0010870695114135742,
+      "median_seconds": 0.47968309999851044,
+      "speedup": 5.985547541720207,
+      "metrics": "outputs/distillation_experiments/teacher_b_extend6k_then2step/evaluation_4step/metrics/evaluation_summary.json"
+    },
+    {
+      "model": "Teacher B 2-step from 6k-extension",
+      "selected_checkpoint": 7000,
+      "status": "PASS",
+      "clip": 0.35351283674438794,
+      "teacher_clip_retention": 0.9683902752021322,
+      "cmmd": 0.0013943910598754883,
+      "median_seconds": 0.2437786500013317,
+      "speedup": 11.777758224459475,
+      "metrics": "outputs/distillation_experiments/teacher_b_extend6k_then2step/evaluation_2step/metrics/evaluation_summary.json"
+    }
+  ],
+  "recommendation": {
+    "best_4step": "Teacher B 6k-extension 4-step (selected checkpoint 4500)",
+    "best_2step": "Teacher B 2-step from 6k-extension (selected checkpoint 7000)",
+    "reason": "The new pair passes every gate and improves CLIP, CMMD, and measured speed over the previously accepted Teacher B 4k-extension pair.",
+    "caution": "The best 2-step CMMD has 2.00% headroom below the acceptance limit; confirm with additional unseen prompts and human preference evaluation before claiming teacher-equivalent quality."
+  }
+}
