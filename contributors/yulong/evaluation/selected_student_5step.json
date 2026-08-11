@@ -1,0 +1,20 @@
+{
+  "status": "selected",
+  "stage": "10_to_5",
+  "selected_checkpoint": 8000,
+  "canonical_adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43\\final_adapter",
+  "checkpoint_adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43\\checkpoints\\step_008000",
+  "adapter_sha256": "13413F5322CE4EB340209853CE6F7C5E0BFBAA6B2D756797FCFDD1E78FF85C7E",
+  "inference_steps": 5,
+  "guidance_scale": 1.0,
+  "evaluation_cases_per_model": 24,
+  "evaluation_images_total": 144,
+  "clip_similarity_to_10step_teacher": 0.9556542187929153,
+  "clip_similarity_to_20step_reference": 0.9083147346973419,
+  "full_prompt_clip": 0.3518168131510417,
+  "content_only_clip": 0.3225301106770833,
+  "median_seconds_per_image": 0.5068095000169706,
+  "median_speedup_vs_10step_teacher": 1.703024410548535,
+  "median_speedup_vs_20step_reference": 5.347831285569614,
+  "evaluation_directory": "D:\\AI\\pixart_local_generation\\outputs\\distillation\\student_10to5_teacher_step12000\\evaluation_8prompts_3seeds"
+}

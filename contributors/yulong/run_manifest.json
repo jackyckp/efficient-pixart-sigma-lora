@@ -1,0 +1,49 @@
+{
+  "contributor": "Yulong Sheng",
+  "experiment": "PixArt-Sigma ink-wash LoRA and progressive 20-to-10-to-5 distillation",
+  "dataset": {
+    "aligned_samples": 260,
+    "resolution": 512,
+    "fingerprint": "b9d3c2d1d404"
+  },
+  "style_teacher": {
+    "rank": 16,
+    "alpha": 16,
+    "learning_rate": 0.00001,
+    "batch_size": 1,
+    "training_updates": 10000,
+    "selected_checkpoint": 4000,
+    "inference_steps": 20,
+    "guidance_scale": 2.0,
+    "adapter_sha256": "43E08B370E0AF99AE58C24D78649B380FA5B4154B486D1D58A9CA4FA60509EA3"
+  },
+  "intermediate_teacher": {
+    "rank": 4,
+    "training_updates": 16000,
+    "selected_checkpoint": 12000,
+    "inference_steps": 10,
+    "guidance_scale": 1.0,
+    "adapter_sha256": "2379D9D8C45B305F9750C3E8D61DED24ABEA8DC256400CB2271EBDF512277FCE"
+  },
+  "student": {
+    "rank": 4,
+    "training_updates": 8000,
+    "selected_checkpoint": 8000,
+    "inference_steps": 5,
+    "guidance_scale": 1.0,
+    "adapter_path": "artifacts/student_5step",
+    "adapter_sha256": "13413F5322CE4EB340209853CE6F7C5E0BFBAA6B2D756797FCFDD1E78FF85C7E"
+  },
+  "evaluation": {
+    "prompts": 8,
+    "seeds": [42, 123, 2026],
+    "cases_per_model": 24,
+    "images_total": 144,
+    "clip_similarity_to_10step_teacher": 0.9556542187929153,
+    "clip_similarity_to_20step_reference": 0.9083147346973419,
+    "median_seconds_per_image": 0.5068095000169706,
+    "median_speedup_vs_10step_teacher": 1.703024410548535,
+    "median_speedup_vs_20step_reference": 5.347831285569614
+  }
+}
+

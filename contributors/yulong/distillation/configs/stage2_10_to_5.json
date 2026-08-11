@@ -1,0 +1,22 @@
+{
+  "stage": "stage2_10_to_5",
+  "teacher_adapter": "models/distilled_students/student_20to10_teacher_trajectories_r4_train16000_g2_seed42/checkpoints/step_012000",
+  "source_steps": 10,
+  "student_steps": 5,
+  "teacher_guidance": 1.0,
+  "student_inference_guidance": 1.0,
+  "scheduler": "DDIMScheduler",
+  "timestep_spacing": "trailing",
+  "eta": 0.0,
+  "target_mode": "teacher_reverse_sampling_trajectory",
+  "trajectories_per_prompt": 4,
+  "target_records": 5200,
+  "student_optimizer_steps": 8000,
+  "checkpointing_steps": 2000,
+  "learning_rate": 1e-6,
+  "batch_size": 1,
+  "gradient_accumulation_steps": 1,
+  "seed_targets": 3026,
+  "seed_training": 43,
+  "note": "8000 updates are about 1.54 passes over 5200 targets, matching the exposure ratio used by Stage 1 v2."
+}
