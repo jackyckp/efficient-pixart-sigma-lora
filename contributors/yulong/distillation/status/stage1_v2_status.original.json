@@ -1,0 +1,7 @@
+﻿{
+    "stage":  "complete",
+    "message":  "Stage 1 v2 cache and Student training completed successfully.",
+    "updated_at":  "2026-08-07T04:50:40.6765870-04:00",
+    "target_cache":  "D:\\AI\\pixart_local_generation\\distillation\\target_caches\\teacher_trajectories_20to10_g2_n260_r4_seed2026.pt",
+    "run_directory":  "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_20to10_teacher_trajectories_r4_train16000_g2_seed42"
+}

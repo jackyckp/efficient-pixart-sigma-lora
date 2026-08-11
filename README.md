@@ -2,6 +2,10 @@
 
 Domain adaptation and efficient inference sampling benchmarks for PixArt-Sigma (DiT) using LoRA. Explores resource-constrained fine-tuning and optimal sampling configurations for specialized text-to-image generation.
 
+## Individual contribution records
+
+- [Yulong Sheng: local LoRA Teacher and progressive 20 -> 10 -> 5 distillation](contributors/yulong/README.md)
+
 Training setup: GPU NVIDIA GeForce RTX 4070 12GB
 
 ## Data Source

@@ -1,0 +1,8 @@
+﻿{
+    "stage":  "complete",
+    "message":  "Stage 2 10-to-5 cache and Student training completed successfully.",
+    "updated_at":  "2026-08-07T20:40:38.5413590-04:00",
+    "teacher_adapter":  "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_20to10_teacher_trajectories_r4_train16000_g2_seed42\\checkpoints\\step_012000",
+    "target_cache":  "D:\\AI\\pixart_local_generation\\distillation\\target_caches\\teacher_trajectories_10to5_g1_n260_r4_seed3026.pt",
+    "run_directory":  "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43"
+}

@@ -1,0 +1,22 @@
+{
+  "stage": "stage1_20_to_10_v2_teacher_trajectories",
+  "teacher_adapter": "models/lora_training_512/style_teacher_r16_lr1e-5_bs1_steps10000_seed42/checkpoints/step_004000",
+  "source_steps": 20,
+  "student_steps": 10,
+  "teacher_guidance": 2.0,
+  "student_inference_guidance": 1.0,
+  "scheduler": "DDIMScheduler",
+  "timestep_spacing": "trailing",
+  "eta": 0.0,
+  "target_mode": "teacher_reverse_sampling_trajectory",
+  "trajectories_per_prompt": 4,
+  "target_records": 10400,
+  "student_optimizer_steps": 16000,
+  "checkpointing_steps": 4000,
+  "learning_rate": 1e-6,
+  "batch_size": 1,
+  "gradient_accumulation_steps": 1,
+  "seed_targets": 2026,
+  "seed_training": 42,
+  "note": "16000 updates are about 1.54 passes over 10400 targets, matching the exposure ratio of the original 4000-update run over 2600 targets."
+}

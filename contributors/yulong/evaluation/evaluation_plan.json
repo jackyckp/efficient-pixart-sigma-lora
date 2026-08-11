@@ -1,0 +1,88 @@
+{
+  "analytical_question": "Which 5-step Student checkpoint best matches the 10-step Teacher, remains faithful to the earlier 20-step reference, and reduces latency?",
+  "prompts": 8,
+  "seeds": [
+    42,
+    123,
+    2026
+  ],
+  "models": [
+    {
+      "key": "reference",
+      "label": "Reference 20-step",
+      "adapter": "D:\\AI\\pixart_local_generation\\models\\lora_training_512\\style_teacher_r16_lr1e-5_bs1_steps10000_seed42\\checkpoints\\step_004000",
+      "kind": "reference",
+      "optimizer_step": 0,
+      "sort_order": -2,
+      "inference_steps": 20,
+      "guidance": 2.0
+    },
+    {
+      "key": "teacher",
+      "label": "Teacher 10-step",
+      "adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_20to10_teacher_trajectories_r4_train16000_g2_seed42\\checkpoints\\step_012000",
+      "kind": "teacher",
+      "optimizer_step": 0,
+      "sort_order": -1,
+      "inference_steps": 10,
+      "guidance": 1.0
+    },
+    {
+      "key": "student_002000",
+      "label": "Student 2000-update",
+      "adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43\\checkpoints\\step_002000",
+      "kind": "student",
+      "optimizer_step": 2000,
+      "sort_order": 2000,
+      "inference_steps": 5,
+      "guidance": 1.0
+    },
+    {
+      "key": "student_004000",
+      "label": "Student 4000-update",
+      "adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43\\checkpoints\\step_004000",
+      "kind": "student",
+      "optimizer_step": 4000,
+      "sort_order": 4000,
+      "inference_steps": 5,
+      "guidance": 1.0
+    },
+    {
+      "key": "student_006000",
+      "label": "Student 6000-update",
+      "adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43\\checkpoints\\step_006000",
+      "kind": "student",
+      "optimizer_step": 6000,
+      "sort_order": 6000,
+      "inference_steps": 5,
+      "guidance": 1.0
+    },
+    {
+      "key": "student_008000",
+      "label": "Student 8000-update",
+      "adapter": "D:\\AI\\pixart_local_generation\\models\\distilled_students\\student_10to5_teacher_step12000_trajectories_r4_train8000_g1_seed43\\checkpoints\\step_008000",
+      "kind": "student",
+      "optimizer_step": 8000,
+      "sort_order": 8000,
+      "inference_steps": 5,
+      "guidance": 1.0
+    }
+  ],
+  "expected_images": 144,
+  "primary_metrics": [
+    "clip_teacher_image_cosine",
+    "clip_reference_image_cosine"
+  ],
+  "guardrails": [
+    "clip_content_cosine",
+    "pixel_mae",
+    "pixel_reference_mae",
+    "visual deformation review"
+  ],
+  "timing_metric": "warmed single-image generation elapsed_seconds",
+  "chart_map": [
+    "two-series line: model vs current-Teacher and earlier-reference CLIP similarity",
+    "two-series line: full/content prompt CLIP alignment",
+    "bar: mean generation seconds by model"
+  ]
+}
