@@ -664,7 +664,7 @@ reloaded_transformer = PeftModel.from_pretrained(
 loaded_rank = reloaded_transformer.peft_config["default"].r
 assert loaded_rank == CFG["LORA_RANK"] == 8
 assert not any(parameter.requires_grad for parameter in reloaded_transformer.parameters())
-pipeline_transformer = reloaded_transformer.get_base_model()
+pipeline_transformer = reloaded_transformer.merge_and_unload()
 pipeline_transformer.eval()
 assert isinstance(pipeline_transformer, PixArtTransformer2DModel)
 print(f"Reload succeeded: adapter rank={loaded_rank}, trainable=False")

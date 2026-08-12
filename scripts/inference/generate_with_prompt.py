@@ -66,6 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--allow-seen-prompt", action="store_true")
+    parser.add_argument(
+        "--no-adapter",
+        action="store_true",
+        help="Generate image using base PixArt-Sigma transformer model without LoRA adapter.",
+    )
     parser.add_argument("--transformer-model", default=TRANSFORMER_MODEL)
     parser.add_argument("--component-model", default=COMPONENT_MODEL)
     return parser
@@ -177,9 +182,9 @@ def encode_prompts(
 
 
 def generate(args: argparse.Namespace) -> dict[str, object]:
-    if sys.version_info[:3] != (3, 11, 2):
+    if sys.version_info[:2] != (3, 11):
         raise RuntimeError(
-            f"Expected Python 3.11.2, got {platform.python_version()}."
+            f"Expected Python 3.11.x, got {platform.python_version()}."
         )
     if not torch.cuda.is_available():
         raise RuntimeError("A CUDA GPU is required.")
@@ -192,13 +197,10 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
 
     from diffusers import PixArtSigmaPipeline, PixArtTransformer2DModel
 
-    adapter_dir: Path | None = None
-    if args.base_model_only:
-        prompt_audit: dict[str, object] = {
-            "skipped": True,
-            "reason": "base-model-only mode has no training subset.",
-        }
-    else:
+    use_adapter = not getattr(args, "no_adapter", False) and (
+        args.adapter is not None and str(args.adapter).lower() != "none"
+    )
+    if use_adapter:
         adapter_dir = args.adapter.resolve()
         if not (adapter_dir / "adapter_config.json").is_file():
             raise FileNotFoundError(f"PEFT adapter not found: {adapter_dir}")
@@ -207,6 +209,15 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
             adapter_dir,
             args.allow_seen_prompt,
         )
+    else:
+        adapter_dir = None
+        prompt_audit = {
+            "subset_manifest": None,
+            "subset_manifest_found": False,
+            "exact_training_caption_match": False,
+            "mode": "base_model_no_adapter",
+        }
+
     output_path = args.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -225,20 +236,17 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         torch_dtype=torch.float16,
         use_safetensors=True,
     )
-    if args.base_model_only:
-        loaded_rank: int | None = None
-        transformer = base_transformer.eval()
-    else:
-        from peft import PeftModel
-
-        assert adapter_dir is not None
+    if use_adapter and adapter_dir is not None:
         reloaded_transformer = PeftModel.from_pretrained(
             base_transformer,
             adapter_dir,
             is_trainable=False,
         ).eval()
         loaded_rank = reloaded_transformer.peft_config["default"].r
-        transformer = reloaded_transformer.get_base_model().eval()
+        transformer = reloaded_transformer.merge_and_unload().eval()
+    else:
+        transformer = base_transformer.eval()
+        loaded_rank = None
     pipe = PixArtSigmaPipeline.from_pretrained(
         args.component_model,
         transformer=transformer,
@@ -251,6 +259,7 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
     generator = torch.Generator("cuda").manual_seed(args.seed)
     generation_kwargs = {
         "prompt": None,
+        "negative_prompt": None,
         "prompt_embeds": prompt_embeds.to("cuda"),
         "prompt_attention_mask": prompt_mask.to("cuda"),
         "num_inference_steps": args.num_inference_steps,
@@ -280,10 +289,7 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         "prompt": args.prompt,
         "negative_prompt": args.negative_prompt,
         "prompt_audit": prompt_audit,
-        "generation_mode": (
-            "base_model" if args.base_model_only else "lora_adapter"
-        ),
-        "adapter": str(adapter_dir) if adapter_dir else None,
+        "adapter": str(adapter_dir) if adapter_dir is not None else "None (Base Model)",
         "adapter_rank": loaded_rank,
         "transformer_model": args.transformer_model,
         "component_model": args.component_model,

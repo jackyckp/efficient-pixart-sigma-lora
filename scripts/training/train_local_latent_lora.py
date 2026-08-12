@@ -38,6 +38,7 @@ EXPECTED_LATENT_SHAPE = (4, 64, 64)
 EXPECTED_SEQUENCE_LENGTH = 300
 EXPECTED_EMBEDDING_DIM = 4096
 EXPECTED_DATASET_SIZE = 260
+SUPPORTED_DATASET_SIZES = (50, 100, 209, 260)
 EXPECTED_PAIRED_LATENT_CACHE = (
     "image_latents_n260_res512_b9d3c2d1d404.pt"
 )
@@ -788,9 +789,9 @@ def run_training(
     selected_ids: tuple[str, ...],
     prompt_features: PromptFeatures,
 ) -> dict[str, Any]:
-    if sys.version_info[:3] != (3, 11, 2):
+    if sys.version_info[:2] != (3, 11):
         raise RuntimeError(
-            f"Expected Python 3.11.2, got {platform.python_version()}."
+            f"Expected Python 3.11.x, got {platform.python_version()}."
         )
     if not torch.cuda.is_available():
         raise RuntimeError("A CUDA GPU is required for PixArt LoRA training.")
@@ -1007,29 +1008,24 @@ def run_training(
                     accelerator.gather(loss.detach()).mean().item()
                 )
                 loss_history.append(loss_value)
+                print(
+                    f"optimizer_step={global_step:02d}/"
+                    f"{args.max_train_steps} loss={loss_value:.6f}"
+                )
                 if (
-                    global_step == 1
-                    or global_step % args.log_every_steps == 0
-                    or global_step == args.max_train_steps
+                    args.checkpointing_steps > 0
+                    and global_step % args.checkpointing_steps == 0
                 ):
-                    print(
-                        f"optimizer_step={global_step}/"
-                        f"{args.max_train_steps} loss={loss_value:.6f}"
+                    ckpt_root = output_dir / f"checkpoint-{global_step}"
+                    ckpt_adapter = ckpt_root / "lora_adapter"
+                    ckpt_adapter.mkdir(parents=True, exist_ok=True)
+                    unwrapped = accelerator.unwrap_model(transformer)
+                    unwrapped.save_pretrained(ckpt_adapter, safe_serialization=True)
+                    (ckpt_root / "subset_manifest.json").write_text(
+                        json.dumps(selected_manifest, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
                     )
-                if (
-                    args.checkpoint_every_steps > 0
-                    and global_step % args.checkpoint_every_steps == 0
-                ):
-                    checkpoint_paths.append(
-                        _save_lora_checkpoint(
-                            accelerator=accelerator,
-                            transformer=transformer,
-                            output_dir=output_dir,
-                            args=args,
-                            global_step=global_step,
-                            loss_value=loss_value,
-                        )
-                    )
+                    print(f"Saved checkpoint at step {global_step} to {ckpt_root}")
             if global_step >= args.max_train_steps:
                 break
 
@@ -1082,7 +1078,7 @@ def run_training(
         for parameter in reloaded_transformer.parameters()
     ):
         raise RuntimeError("Reloaded inference adapter is unexpectedly trainable.")
-    pipeline_transformer = reloaded_transformer.get_base_model().eval()
+    pipeline_transformer = reloaded_transformer.merge_and_unload().eval()
     if not isinstance(pipeline_transformer, PixArtTransformer2DModel):
         raise RuntimeError("PEFT reload did not expose a PixArt transformer.")
 
@@ -1271,6 +1267,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log-every-steps", type=int, default=10)
     parser.add_argument("--run-role", default="lora_smoke")
     parser.add_argument(
+        "--checkpointing-steps",
+        type=int,
+        default=0,
+        help="Save intermediate PEFT adapter checkpoints every N steps.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
@@ -1282,6 +1284,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--component-model",
         default=COMPONENT_MODEL,
+    )
+    parser.add_argument(
+        "--plant-only",
+        action="store_true",
+        help="Filter training subset exclusively to plant images (209 samples).",
     )
     parser.add_argument(
         "--validate-assets-only",
@@ -1322,14 +1329,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.lora_alpha is None:
         args.lora_alpha = args.rank
     if args.output_dir is None:
+        suffix = "plant209" if args.plant_only or args.num_images == 209 else f"n{args.num_images}"
         args.output_dir = (
             repository_root()
             / "outputs"
-            / "local_smoke"
-            / (
-                f"{args.category or 'all'}_r{args.rank}_"
-                f"n{args.num_images}"
-            )
+            / "plant_dataset"
+            / f"r{args.rank}_{suffix}"
         )
 
     latent_bundle = load_latent_bundle(args.latent_bundle)
@@ -1337,9 +1342,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.image_archive,
         latent_bundle,
     )
+    if args.plant_only or args.num_images == 209:
+        candidate_ids = tuple(s for s in latent_bundle.sample_ids if s.startswith("plant/"))
+    else:
+        candidate_ids = latent_bundle.sample_ids
+
+    target_count = len(candidate_ids) if (args.plant_only or args.num_images == 209) and args.num_images >= len(candidate_ids) else args.num_images
     selected_ids = deterministic_subset_ids(
-        latent_bundle.sample_ids,
-        args.num_images,
+        candidate_ids,
+        target_count,
         args.seed,
         args.category,
     )
