@@ -1,0 +1,64 @@
+{
+  "format_version": 1,
+  "status": "PASS_WITH_ONE_LATENCY_EXCEPTION",
+  "protocol": {
+    "evaluation_prompts": "evaluation/distillation_prompts_v1.json",
+    "evaluation_prompt_cache": "data/features/distill_eval_t5_prompts30_len300_fp16_v1.pt",
+    "prompt_count": 30,
+    "seeds_per_prompt": 4,
+    "images_per_model": 120,
+    "student_guidance_scale": 1.0,
+    "clip_model": "openai/clip-vit-base-patch32"
+  },
+  "results": [
+    {
+      "model": "Teacher A extended 4-step",
+      "training": "4-step continued to 6000; selected checkpoint 4500",
+      "status": "FAIL_LATENCY_ONLY",
+      "clip": 0.34986679404973986,
+      "teacher_clip_retention": 1.0200594587263845,
+      "cmmd": 0.0012477636337280273,
+      "median_seconds": 0.48722089999500895,
+      "speedup": 4.168836661202274,
+      "metrics": "outputs/distillation_experiments/teacher_a_extend6k_then2step/evaluation_4step/metrics/evaluation_summary.json"
+    },
+    {
+      "model": "Teacher A 2-step from extended 4-step",
+      "training": "7000 optimizer updates; selected checkpoint 7000",
+      "status": "PASS",
+      "clip": 0.34078761289517084,
+      "teacher_clip_retention": 0.9935885138647472,
+      "cmmd": 0.0015219449996948242,
+      "median_seconds": 0.24208229999931064,
+      "speedup": 8.390305073972545,
+      "metrics": "outputs/distillation_experiments/teacher_a_extend6k_then2step/evaluation_2step/metrics/evaluation_summary.json"
+    },
+    {
+      "model": "Teacher B extended 4-step",
+      "training": "4-step continued to 4000; selected checkpoint 4000",
+      "status": "PASS",
+      "clip": 0.36481050327420234,
+      "teacher_clip_retention": 0.9993383745716031,
+      "cmmd": 0.0011067390441894531,
+      "median_seconds": 0.48860145000799093,
+      "speedup": 5.876294472629697,
+      "metrics": "outputs/distillation_experiments/teacher_b_extend4k_then2step/evaluation_4step/metrics/evaluation_summary.json"
+    },
+    {
+      "model": "Teacher B 2-step from extended 4-step",
+      "training": "7000 optimizer updates; selected checkpoint 7000",
+      "status": "PASS",
+      "clip": 0.3512777609129747,
+      "teacher_clip_retention": 0.9622676525573286,
+      "cmmd": 0.0014116764068603516,
+      "median_seconds": 0.24994739999965532,
+      "speedup": 11.487080881836626,
+      "metrics": "outputs/distillation_experiments/teacher_b_extend4k_then2step/evaluation_2step/metrics/evaluation_summary.json"
+    }
+  ],
+  "recommendation": {
+    "best_4step": "Teacher B extended 4-step",
+    "best_2step": "Teacher B 2-step from extended 4-step",
+    "reason": "Teacher B wins both step counts on CLIP and CMMD. Its 2-step model now passes every gate and is 11.49x faster than its 20-step teacher."
+  }
+}

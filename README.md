@@ -1,241 +1,77 @@
-# efficient-pixart-sigma-lora
+# Efficient PixArt-Sigma LoRA
 
-Domain adaptation and efficient inference sampling benchmarks for PixArt-Sigma (DiT) using LoRA. Explores resource-constrained fine-tuning and optimal sampling configurations for specialized text-to-image generation.
+This project adapts PixArt-Sigma 512 to Chinese ink-wash plant imagery, then distils a 20-step style teacher into 4-step and 2-step joint LoRA students. The GitHub repository contains code, experiment contracts, evaluation summaries, and a deliberately small curated visual set; raw data and model artifacts remain local or in shared storage.
 
-Training setup: GPU NVIDIA GeForce RTX 4070 12GB
+## Primary result: Teacher B 6k -> 4-step / 2-step
 
-## Data Source
+The primary experiment extends Teacher B's 4-step student to 6k updates and trains a fresh 7k 2-step student from its selected four-step adapter. All results use held-out prompts, fixed seeds, 512 x 512 output, and guidance scale 1.0 for students.
 
-This project now uses a local ink-wash image corpus collected from Tappu via the scraper script [download_tappu.py](download_tappu.py). The script crawls the Tappu gallery pages, downloads representative images, translates article text to English, and saves the outputs into the local folders:
+| Model | Inference steps | Selected checkpoint | CLIPScore | Teacher retention | CMMD to plant data | Median latency | Speed-up | Gate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Teacher B | 20 | style teacher | 0.3651 | 100% | 0.000949 | 2.871 s | 1.00x | Reference |
+| Joint LoRA student | 4 | 4,500 | 0.3674 | 100.65% | 0.001087 | 0.480 s | 5.99x | PASS |
+| Joint LoRA student | 2 | 7,000 | 0.3535 | 96.84% | 0.001394 | 0.244 s | 11.78x | PASS |
 
-- [data/ink/animal](data/ink/animal)
-- [data/ink/plant](data/ink/plant)
-- [data/ink/others](data/ink/others)
+The complete history is in [evaluation/all_4step_2step_training_evaluation_results.csv](evaluation/all_4step_2step_training_evaluation_results.csv) and [evaluation/distillation_extended_results_v2.json](evaluation/distillation_extended_results_v2.json).
 
-Each downloaded item produces an image file plus a matching `.txt` caption file.
+## Curated visual examples
 
-## 📋 Project Execution Pipeline
+Nine existing 512 x 512 images are versioned, with no new images generated for repository preparation:
 
-```
-[💾 Phase 1: Data] ──> [⚙️ Phase 2: Train Matrix] ──> [🔮 Phase 3: Grid Inference] ──> [📊 Phase 4: Evaluation]
-  - 📥 Collect & Clean    - 📐 3 Ranks (4, 8, 16)       - ⏱️ 4 Steps (5, 10, 20, 50)    - 🤖 Quantitative (CLIP)
-  - 🏷️ Auto-Captioning    - 📈 3 Data Scales            - 🎯 3 Guidance Scales          - 👥 Qualitative (Human)
-  - ✂️ Split Subsets      - 💾 9 LoRA Weights Total     - ✍️ 3 Prompt Complexities      - 🗺️ Pareto Frontier Plot
+- Three Teacher B 6k teacher-vs-4-step grids: [evaluation/examples/teacher_b_extend6k_4step](evaluation/examples/teacher_b_extend6k_4step)
+- Three Teacher B 6k teacher-vs-2-step grids: [evaluation/examples/teacher_b_extend6k_2step](evaluation/examples/teacher_b_extend6k_2step)
+- An official-base / style-teacher same-prompt, same-seed ginkgo comparison set: [evaluation/examples/style_teacher_vs_official_ginkgo](evaluation/examples/style_teacher_vs_official_ginkgo)
 
-```
+## Repository boundary
 
-```mermaid
-flowchart LR
-    %% Phase 1
-    subgraph P1 [💾 Phase 1: Data Preprocessing]
-        direction TD
-        A[📥 Collect Master Dataset <br/> 300 Clean Images] --> B[✂️ Split into Nested Subsets <br/> 50 / 100 / 300 images]
-        B --> C[🏷️ Automated Captioning <br/> Run BLIP-2 / LLaVA]
-        C --> D[📦 Output: Prepared Image + Text Pairs]
-    end
+Tracked: source code under `scripts/`, tests, notebooks, documentation, evaluation prompts/tables, the presentation outline/template source, and the nine curated images above.
 
-    %% Phase 2
-    subgraph P2 [⚙️ Phase 2: Multi-Config Training]
-        direction TD
-        E[🤖 Initialize Base Model <br/> PixArt-Sigma DiT] --> F[📐 Configure Matrix Parameters <br/> Ranks: 4, 8, 16 x Data: 50, 100, 300]
-        F --> G[🚀 Execute Training Loop <br/> run_train_matrix.sh]
-        G --> H[💾 Output: 9 Saved LoRA Weights <br/> .safetensors files]
-    end
+Excluded: image datasets, latent archives, prompt embeddings, trajectory caches, checkpoints, LoRA adapters, model weights, generated outputs, and generated PowerPoint/PDF files. Do not bypass this policy with `git add -f`.
 
-    %% Phase 3
-    subgraph P3 [🔮 Phase 3: Automated Grid Inference]
-        direction TD
-        I[✍️ Prepare 3 Test Prompts <br/> Simple / Combo / Complex] --> J[🔄 Configure Sampling Loops <br/> Steps: 5,10,20,50 x Guidance: 3,5,7.5]
-        J --> K[💻 Batch Generation Script <br/> generate_grid.py]
-        K --> L[🖼️ Output: 324 Target Images <br/> Structured Output Folder]
-    end
+## Local assets required for training
 
-    %% Phase 4
-    subgraph P4 [📊 Phase 4: Evaluation & Analysis]
-        direction TD
-        M[🧪 Run Dual Assessments <br/> Latency, CLIP, & Human Metrics] --> N[📊 Consolidate Experimental Data]
-        N --> O[🗺️ Map Performance <br/> Plot the Pareto Frontier]
-    end
+Obtain the following from the team's shared storage after cloning. They are intentionally not distributed through GitHub because of size and data-distribution constraints.
 
-    %% Macro Flow: Horizontal Subgraph-to-Subgraph links
-    P1 --> P2
-    P2 --> P3
-    P3 --> P4
+| Local path | Purpose |
+| --- | --- |
+| `data/archives/ink.zip` | 260 image-caption pairs |
+| `data/archives/clean_latents_512.zip` | Precomputed 512px clean VAE latents |
+| `data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` | Local-training prompt embeddings |
+| `data/features/distill_t5_plant627_len300_fp16_v1.pt` | Distillation prompt-bank embeddings |
+| `data/features/distill_eval_t5_prompts30_len300_fp16_v1.pt` | Cached held-out evaluation embeddings |
 
-    %% Formatting Style
-    style P1 fill:#f9f9f9,stroke:#333,stroke-width:1px
-    style P2 fill:#f5f7ff,stroke:#333,stroke-width:1px
-    style P3 fill:#f5fff5,stroke:#333,stroke-width:1px
-    style P4 fill:#fff5f5,stroke:#333,stroke-width:1px
+See [data/README.md](data/README.md) for asset and validation contracts.
+
+## Setup and entry points
+
+Use Python 3.11.2. Install a CUDA-enabled PyTorch build appropriate to your machine, then install project dependencies:
+
+```powershell
+py -3.11 -m pip install -r requirements.txt
 ```
 
----
+Validate local data assets:
 
-## Phase 1: Data Architecture & Preprocessing
-
-Before touching any GPU code, you must build a local dataset in a deterministic structure so that training and evaluation are reproducible.
-
-### 1. Collecting the Source Data
-
-Run [download_tappu.py](download_tappu.py) from the project root to scrape the Tappu gallery and populate the local dataset folders:
-
-```bash
-python download_tappu.py
+```powershell
+py -3.11 scripts/training/train_local_latent_lora.py --validate-assets-only
 ```
 
-The script downloads images and translated captions into the following structure:
+The distillation method, CLI entry points, cache formats, and evaluation gates are documented in [DISTILLATION.md](DISTILLATION.md). Main pipeline scripts are:
 
-```bash
-data/ink/
-├── animal/
-│   ├── 100.jpg
-│   ├── 100.txt
-│   └── ...
-├── plant/
-│   ├── 200.jpg
-│   ├── 200.txt
-│   └── ...
-└── others/
-    ├── no_num_1001.jpg
-    ├── no_num_1001.txt
-    └── ...
+- `scripts/distillation/cache_teacher_trajectories.py`
+- `scripts/distillation/train_phased_distill_lora.py`
+- `scripts/distillation/generate_evaluation_set.py`
+- `scripts/distillation/evaluate_distilled.py`
+
+## Layout
+
+```text
+data/           local asset contract only (assets are ignored)
+evaluation/     tracked metrics, prompts, and curated examples
+notebooks/      preprocessing and smoke-test notebooks
+scripts/        data preparation, training, distillation, and evaluation code
+tests/          contract and regression tests
+presentation/   final outline and slide-template source
 ```
 
-These local image folders are then used directly by the notebook workflow and the captioning script.
-
-### 2. Automated Captioning
-
-Do not caption manually. Use [auto_caption.py](auto_caption.py) to generate a matching `.txt` file for every image in the local dataset folder.
-
-```bash
-python auto_caption.py --dir ./data/ink --model florence-2 --trigger "traditional Chinese ink wash painting style, shuimo hua"
-```
-
-The notebook is configured to point at the local dataset under [data/ink](data/ink), so the captioning step can be run directly on that folder.
-
----
-
-## Phase 2: Environment & Multi-Configuration Training
-
-Since you need to train **9 distinct LoRA models** ($3 \text{ Ranks} \times 3 \text{ Data Scales}$), your best approach is writing a simple bash script to loop through the training matrix sequentially.
-
-### 1. Core Stack
-
-- **Framework:** Hugging Face `diffusers` + PyTorch.
-- **Base Model:** `PixArt-alpha/PixArt-Sigma-XL-2-1024-MS` (or the 512 variant if VRAM is tight).
-- **Script base:** Modify the standard `train_text_to_image_lora.py` from Hugging Face's example repository to support PixArt-Sigma.
-
-### 2. The Training Loop Automation Script (`run_train_matrix.sh`)
-
-Instead of running commands manually 9 times, use this automated script layout:
-
-```bash
-#!/bin/bash
-# Hyperparameter Arrays
-RANKS=(4 8 16)
-DATA_DIRS=("dataset_50" "dataset_100" "dataset_300")
-
-for rank in "${RANKS[@]}"; do
-  for data_dir in "${DATA_DIRS[@]}"; do
-    echo "Running Training: Rank=$rank, Data=$data_dir"
-    
-    python train_text_to_image_lora.py \
-      --pretrained_model_name_or_path="PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" \
-      --train_data_dir="./data/$data_dir" \
-      --rank=$rank \
-      --output_dir="./outputs/lora_r${rank}_${data_dir}" \
-      --resolution=1024 \
-      --train_batch_size=4 \
-      --max_train_steps=1000 \
-      --checkpointing_steps=500 \
-      --learning_rate=1e-4 \
-      --seed=42
-  done
-done
-
-```
-
----
-
-## Phase 3: Automated Grid Inference (Sampling Phase)
-
-Once training finishes, you will have 9 `.safetensors` files. Now you must evaluate them against the remaining variables: **4 Step configurations**, **3 Guidance Scales**, and **3 Prompts**.
-
-> ⚠️ **Warning:** $9 \text{ models} \times 4 \text{ steps} \times 3 \text{ guidance scales} \times 3 \text{ prompts} = 324 \text{ generated images}$. **Do not do this manually.**
-
-### 1. Setup Test Prompts
-
-Prepare 3 specific prompt templates of escalating complexity:
-
-- `PROMPT_SIMPLE`: "A car, [your style tag]."
-- `PROMPT_COMBO`: "A sports car driving through a city street, [your style tag]."
-- `PROMPT_COMPLEX`: "A futuristic aerodynamic sports car speeding down a neon-lit cyberpunk alleyway, intricate details, flawless [your style tag]."
-
-### 2. Automated Evaluation Script (`generate_grid.py`)
-
-Write an inference script that automatically loops through your parameters and names files systematically:
-
-```python
-import os
-import itertools
-from diffusers import PixArtSigmaPipeline
-import torch
-
-# Configuration Matrix
-ranks = [4, 8, 16]
-datasets = ["dataset_50", "dataset_100", "dataset_300"]
-steps_list = [5, 10, 20, 50]
-guidance_list = [3.0, 5.0, 7.5]
-prompts = {"simple": "...", "combo": "...", "complex": "..."}
-
-# Load Base Pipeline
-pipe = PixArtSigmaPipeline.from_pretrained("PixArt-alpha/PixArt-Sigma-XL-2-1024-MS", torch_dtype=torch.float16).to("cuda")
-
-# Nested Grid Generation Loop
-for r, d in itertools.product(ranks, datasets):
-    lora_path = f"./outputs/lora_r{r}_{d}"
-    pipe.load_lora_weights(lora_path)
-    
-    for steps, g_scale, p_name in itertools.product(steps_list, guidance_list, prompts.keys()):
-        # Set deterministic seed for fair comparison
-        generator = torch.Generator("cuda").manual_seed(42)
-        
-        image = pipe(
-            prompts[p_name], 
-            num_inference_steps=steps, 
-            guidance_scale=g_scale,
-            generator=generator
-        ).images[0]
-        
-        # Save file with completely trackable metadata in the name
-        filename = f"r{r}_{d}_step{steps}_g{g_scale}_{p_name}.png"
-        image.save(os.path.join("./inference_results", filename))
-
-```
-
----
-
-## Phase 4: Metrics Collection & Analysis
-
-With your 324 images sorted, finalize your study by mapping out the metrics.
-
-### 1. Quantitative (Code-Driven)
-
-- **Latency Tracking:** In your `generate_grid.py` script, wrap your `pipe()` call with `time.time()` to log exactly how many milliseconds each inference combination takes. Save these directly to a CSV file.
-- **CLIPScore / ImageReward:** Write a fast batch script to load your generated images alongside their input text prompts to compute automated text-alignment scores.
-
-### 2. Qualitative (Human Blind Test)
-
-- Pick a subset of the images (e.g., focusing only on the `complex` prompt).
-- Create a simple shared spreadsheet for your team. Grade images from 1 to 5 on two clear elements:
-- *Style Alignment:* Did it actually look like tech line art/ink wash, or did it bleed back into a generic photo?
-- *Structural Integrity:* Are the lines clean, or did the architecture or text turn into chaotic gibberish?
-
-### 3. Deliverable Presentation (The Pareto Frontier)
-
-Plot a 2D scatter plot where:
-
-- **X-axis:** Inference Time (Latency in seconds).
-- **Y-axis:** Quality Score (CLIPScore or Human Rating).
-
-Your goal in your final presentation is to draw a line connecting the top-leftmost points. This line represents your **Pareto Frontier**—showing your class exactly where the optimal "quality-speed sweet spots" live when deploying a fine-tuned DiT model with constrained resources.
+Each run records prompt-cache fingerprints, teacher/adapter hashes, checkpoint, seed, and scheduler configuration. A clone therefore needs the listed external assets to reproduce training, but not to inspect the complete implementation and reported results.
