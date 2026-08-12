@@ -30,7 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Encode a new text prompt with T5, release T5, then generate "
-            "with the local PixArt-Sigma LoRA adapter."
+            "with either the local PixArt-Sigma LoRA adapter or the "
+            "unmodified base model."
         )
     )
     parser.add_argument("--prompt", required=True)
@@ -56,6 +57,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--guidance-scale", type=float, default=1.0)
     parser.add_argument("--t5-gpu-memory", default="4GiB")
     parser.add_argument("--t5-cpu-memory", default="8GiB")
+    parser.add_argument(
+        "--base-model-only",
+        action="store_true",
+        help=(
+            "Skip the LoRA adapter and generate with the original "
+            "PixArt-Sigma transformer."
+        ),
+    )
     parser.add_argument("--allow-seen-prompt", action="store_true")
     parser.add_argument(
         "--no-adapter",
@@ -187,7 +196,6 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("--guidance-scale must be finite and at least 1.0.")
 
     from diffusers import PixArtSigmaPipeline, PixArtTransformer2DModel
-    from peft import PeftModel
 
     use_adapter = not getattr(args, "no_adapter", False) and (
         args.adapter is not None and str(args.adapter).lower() != "none"

@@ -38,6 +38,12 @@ def _prompt_cache(sample_ids: list[str]) -> dict[str, object]:
         "sample_ids": sample_ids,
         "prompt_embeds": embeds,
         "attention_masks": torch.ones((rows, 300), dtype=torch.bool),
+        "empty_prompt_embeds": torch.zeros(
+            (1, 300, 4096), dtype=torch.float16
+        ),
+        "empty_prompt_attention_mask": torch.ones(
+            (1, 300), dtype=torch.int64
+        ),
         "max_sequence_length": 300,
         "text_encoder_model": "test/t5",
         "manifest_fingerprint": EXPECTED_MANIFEST_FINGERPRINT,
