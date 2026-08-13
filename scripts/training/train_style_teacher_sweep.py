@@ -133,9 +133,9 @@ def validate_args(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
 ) -> None:
-    if sys.version_info[:3] != (3, 11, 2):
+    if sys.version_info[:2] != (3, 11):
         parser.error(
-            f"Expected Python 3.11.2, got {platform.python_version()}."
+            f"Expected Python 3.11.x, got {platform.python_version()}."
         )
     if len(args.ranks) != 4 or len(set(args.ranks)) != 4:
         parser.error("--ranks must contain exactly four distinct values.")

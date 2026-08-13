@@ -99,9 +99,9 @@ def apply_stage_defaults(args: argparse.Namespace) -> None:
 
 def validate_args(args: argparse.Namespace) -> None:
     apply_stage_defaults(args)
-    if sys.version_info[:3] != (3, 11, 2):
+    if sys.version_info[:2] != (3, 11):
         raise RuntimeError(
-            f"Expected Python 3.11.2, got {platform.python_version()}."
+            f"Expected Python 3.11.x, got {platform.python_version()}."
         )
     if not torch.cuda.is_available():
         raise RuntimeError("A CUDA GPU is required for distillation training.")

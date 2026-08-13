@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "prompt": "Misty mountain peaks enveloped in soft clouds, ancient pine tree on a cliff, traditional Chinese ink wash painting style, shuimo hua",
+  "prompt_id": null,
+  "adapter": "C:\\dev\\efficient-pixart-sigma-lora\\models\\teacher_b_primary_2step",
+  "adapter_rank": 16,
+  "seed": 42,
+  "num_inference_steps": 2,
+  "guidance_scale": 1.0,
+  "classifier_free_guidance_branch": false,
+  "transformer_forward_calls": 2,
+  "phase_index_pairs": [
+    [
+      0,
+      10
+    ],
+    [
+      10,
+      20
+    ]
+  ],
+  "denoise_seconds": 0.5773557000793517,
+  "peak_allocated_vram_gb": 1.2623963356018066,
+  "image": "C:\\dev\\efficient-pixart-sigma-lora\\models\\inference_results\\interactive_demo_2step.png",
+  "image_size": [
+    512,
+    512
+  ],
+  "transformer_model": "PixArt-alpha/PixArt-Sigma-XL-2-512-MS",
+  "component_model": "PixArt-alpha/pixart_sigma_sdxlvae_T5_diffusers"
+}

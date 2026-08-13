@@ -10,6 +10,7 @@ import platform
 import time
 from pathlib import Path
 from typing import Sequence
+import sys
 
 import torch
 
@@ -148,9 +149,9 @@ def _declared_target_steps(adapter_dir: Path) -> int | None:
 
 
 def generate(args: argparse.Namespace) -> dict[str, object]:
-    if platform.python_version() != "3.11.2":
+    if sys.version_info[:2] != (3, 11):
         raise RuntimeError(
-            f"Expected Python 3.11.2, got {platform.python_version()}."
+            f"Expected Python 3.11.x, got {platform.python_version()}."
         )
     if not torch.cuda.is_available():
         raise RuntimeError("A CUDA GPU is required.")

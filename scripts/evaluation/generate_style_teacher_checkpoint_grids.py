@@ -395,8 +395,8 @@ def generate_official_base_image(
 
 
 def validate_args(value: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    if sys.version_info[:3] != (3, 11, 2):
-        value.error(f"Expected Python 3.11.2, got {platform.python_version()}.")
+    if sys.version_info[:2] != (3, 11):
+        value.error(f"Expected Python 3.11.x, got {platform.python_version()}.")
     if not torch.cuda.is_available() and not args.dry_run:
         value.error("A CUDA GPU is required.")
     if len(args.ranks) != 4 or len(set(args.ranks)) != 4:
