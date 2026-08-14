@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.distillation import train_phased_distill_lora_v3 as trainer
+from scripts.distillation import train_phased_distill_lora_impl as trainer
 
 
 def write_existing_best(output_dir: Path, loss: float) -> None:
@@ -43,7 +43,7 @@ def test_checkpoint_promotion_compares_against_pre_resume_best(
 
     monkeypatch.setattr(
         trainer,
-        "_save_checkpoint_without_history_guard",
+        "_save_checkpoint_unchecked",
         fake_save_checkpoint,
     )
     trainer._save_checkpoint(

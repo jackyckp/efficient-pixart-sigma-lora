@@ -207,8 +207,19 @@ def build_assets(args: argparse.Namespace) -> dict[str, Any]:
     if args.encode_batch_size <= 0:
         raise ValueError("--encode-batch-size must be positive.")
     latent_bundle = load_latent_bundle(args.latent_bundle)
+    # Older canonical manifests predate the explicit category field. Derive it
+    # from the stable sample ID rather than maintaining a runtime patch layer.
+    manifest = tuple(
+        {
+            **row,
+            "category": row.get(
+                "category", str(row["sample_id"]).split("/", 1)[0]
+            ),
+        }
+        for row in latent_bundle.manifest
+    )
     plant_manifest = tuple(
-        row for row in latent_bundle.manifest if row["category"] == "plant"
+        row for row in manifest if row["category"] == "plant"
     )
     if len(plant_manifest) != 209:
         raise ValueError(f"Expected 209 plant records, got {len(plant_manifest)}.")

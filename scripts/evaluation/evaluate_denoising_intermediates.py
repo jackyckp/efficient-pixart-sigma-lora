@@ -41,7 +41,7 @@ from scripts.distillation.evaluation_prompt_cache import (  # noqa: E402
     DEFAULT_CACHE,
     load_evaluation_prompt_cache,
 )
-from scripts.distillation.evaluate_distilled_impl_clip_compat import (  # noqa: E402
+from scripts.distillation.evaluate_distilled_impl import (  # noqa: E402
     F_normalize,
 )
 

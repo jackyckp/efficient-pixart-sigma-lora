@@ -12,13 +12,9 @@ from typing import Any, Sequence
 
 import torch
 
-from scripts.distillation.cache_teacher_trajectories import (
-    _generate_one as generate_teacher_trajectory,
-)
 from scripts.distillation.common import (
     COMPONENT_MODEL,
     LATENT_SHAPE,
-    MAX_SEQUENCE_LENGTH,
     TRANSFORMER_MODEL,
     deterministic_jump,
     phase_pairs,
@@ -26,6 +22,10 @@ from scripts.distillation.common import (
     split_epsilon_prediction,
     state_timestep,
     write_json,
+)
+from scripts.distillation.evaluation_prompt_cache import (
+    DEFAULT_CACHE,
+    load_evaluation_prompt_cache,
 )
 
 
@@ -37,13 +37,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--student-adapter", type=Path, required=True)
     parser.add_argument("--student-steps", type=int, choices=(2, 4), required=True)
     parser.add_argument("--evaluation-prompts", type=Path, required=True)
+    parser.add_argument(
+        "--evaluation-prompt-cache", type=Path, default=DEFAULT_CACHE
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--prompt-limit", type=int, default=30)
     parser.add_argument("--seeds-per-prompt", type=int, default=4)
     parser.add_argument("--transformer-model", default=TRANSFORMER_MODEL)
     parser.add_argument("--component-model", default=COMPONENT_MODEL)
-    parser.add_argument("--t5-gpu-memory", default="8GiB")
-    parser.add_argument("--t5-cpu-memory", default="24GiB")
     parser.add_argument(
         "--local-files-only",
         action=argparse.BooleanOptionalAction,
@@ -76,82 +77,61 @@ def _load_records(args: argparse.Namespace) -> list[dict[str, Any]]:
 def _encode_unique_prompts(
     records: Sequence[dict[str, Any]], args: argparse.Namespace
 ) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
-    from transformers import T5EncoderModel, T5Tokenizer
-
-    unique: dict[str, str] = {}
-    for record in records:
-        unique[record["prompt_id"]] = record["prompt"]
-    tokenizer = T5Tokenizer.from_pretrained(
-        args.component_model,
-        subfolder="tokenizer",
-        local_files_only=args.local_files_only,
+    return load_evaluation_prompt_cache(
+        args.evaluation_prompt_cache,
+        records,
+        component_model=args.component_model,
     )
-    offload = args.output_dir / "t5_offload_evaluation"
-    offload.mkdir(parents=True, exist_ok=True)
-    encoder = T5EncoderModel.from_pretrained(
-        args.component_model,
-        subfolder="text_encoder",
-        torch_dtype=torch.float16,
-        device_map="auto",
-        max_memory={0: args.t5_gpu_memory, "cpu": args.t5_cpu_memory},
-        offload_folder=str(offload),
-        offload_state_dict=True,
-        low_cpu_mem_usage=True,
-        local_files_only=args.local_files_only,
-    ).eval()
-    output: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
-    for prompt_id, prompt in unique.items():
-        tokens = tokenizer(
-            [prompt],
-            padding="max_length",
-            max_length=MAX_SEQUENCE_LENGTH,
-            truncation=True,
-            return_attention_mask=True,
-            return_tensors="pt",
-        )
-        input_device = encoder.get_input_embeddings().weight.device
-        with torch.inference_mode():
-            embed = encoder(
-                input_ids=tokens.input_ids.to(input_device),
-                attention_mask=tokens.attention_mask.to(input_device),
-            ).last_hidden_state.to("cpu", dtype=torch.float16)
-        output[prompt_id] = (embed, tokens.attention_mask.to("cpu"))
-    del encoder, tokenizer
-    gc.collect()
-    torch.cuda.empty_cache()
-    return output
 
 
-def _empty_prompt(args: argparse.Namespace) -> tuple[torch.Tensor, torch.Tensor]:
-    from transformers import T5EncoderModel, T5Tokenizer
+def _generate_teacher_final(
+    *,
+    transformer: torch.nn.Module,
+    scheduler: Any,
+    prompt_embed: torch.Tensor,
+    prompt_mask: torch.Tensor,
+    empty_embed: torch.Tensor,
+    empty_mask: torch.Tensor,
+    seed: int,
+    guidance_scale: float,
+    device: torch.device,
+) -> torch.Tensor:
+    """Run the exact 20-call teacher schedule and retain only its final state."""
+    from scripts.distillation.common import TEACHER_TIMESTEPS
 
-    tokenizer = T5Tokenizer.from_pretrained(
-        args.component_model,
-        subfolder="tokenizer",
-        local_files_only=args.local_files_only,
-    )
-    encoder = T5EncoderModel.from_pretrained(
-        args.component_model,
-        subfolder="text_encoder",
-        torch_dtype=torch.float16,
-        low_cpu_mem_usage=True,
-        local_files_only=args.local_files_only,
-    ).to("cpu").eval()
-    tokens = tokenizer(
-        [""],
-        padding="max_length",
-        max_length=MAX_SEQUENCE_LENGTH,
-        truncation=True,
-        return_attention_mask=True,
-        return_tensors="pt",
-    )
+    scheduler.set_timesteps(20, device=device)
+    if tuple(int(value) for value in scheduler.timesteps.tolist()) != TEACHER_TIMESTEPS:
+        raise RuntimeError("Teacher evaluation timestep schedule changed.")
+    generator = torch.Generator(device=device).manual_seed(seed)
+    latent = torch.randn(
+        (1, *LATENT_SHAPE), generator=generator, device=device, dtype=torch.float16
+    ) * scheduler.init_noise_sigma
+    use_cfg = guidance_scale > 1.0
+    embeds = torch.cat([empty_embed, prompt_embed]) if use_cfg else prompt_embed
+    masks = torch.cat([empty_mask, prompt_mask]) if use_cfg else prompt_mask
     with torch.inference_mode():
-        embed = encoder(
-            input_ids=tokens.input_ids,
-            attention_mask=tokens.attention_mask,
-        ).last_hidden_state.to(dtype=torch.float16)
-    del encoder, tokenizer
-    return embed, tokens.attention_mask
+        for timestep in scheduler.timesteps:
+            model_input = torch.cat([latent, latent]) if use_cfg else latent
+            model_input = scheduler.scale_model_input(model_input, timestep)
+            output = transformer(
+                model_input,
+                encoder_hidden_states=embeds,
+                encoder_attention_mask=masks,
+                timestep=timestep.reshape(1).expand(model_input.shape[0]),
+                added_cond_kwargs={"resolution": None, "aspect_ratio": None},
+                return_dict=False,
+            )[0]
+            if use_cfg:
+                unconditional, conditional = output.chunk(2)
+                output = unconditional + guidance_scale * (
+                    conditional - unconditional
+                )
+            latent = scheduler.step(
+                split_epsilon_prediction(output), timestep, latent, return_dict=False
+            )[0]
+    if not bool(torch.isfinite(latent).all()):
+        raise FloatingPointError("Teacher evaluation latent is not finite.")
+    return latent.to("cpu", dtype=torch.float16)
 
 
 def _student_latent(
@@ -255,7 +235,7 @@ def generate_sets(args: argparse.Namespace) -> dict[str, Any]:
         embed, mask = prompt_features[record["prompt_id"]]
         torch.cuda.synchronize()
         started = time.perf_counter()
-        states = generate_teacher_trajectory(
+        latent = _generate_teacher_final(
             transformer=teacher,
             scheduler=teacher_scheduler,
             prompt_embed=embed.to(device),
@@ -268,7 +248,7 @@ def generate_sets(args: argparse.Namespace) -> dict[str, Any]:
         )
         torch.cuda.synchronize()
         teacher_results.append(
-            (record, states[-1:].contiguous(), time.perf_counter() - started)
+            (record, latent, time.perf_counter() - started)
         )
     del teacher, teacher_base
     gc.collect()

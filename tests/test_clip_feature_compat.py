@@ -5,7 +5,6 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-from scripts.distillation import evaluate_distilled_impl_v1
 from scripts.distillation.evaluate_distilled_impl import (
     F_normalize,
     clip_feature_tensor,
@@ -25,10 +24,10 @@ def test_clip_feature_tensor_unwraps_transformers_5_pooler_output() -> None:
     assert torch.equal(F_normalize(output), torch.tensor([[0.0, 1.0]]))
 
 
-def test_versioned_evaluator_uses_compatibility_normalizer() -> None:
+def test_evaluator_uses_compatibility_normalizer() -> None:
     output = SimpleNamespace(pooler_output=torch.tensor([[2.0, 0.0]]))
     assert torch.equal(
-        evaluate_distilled_impl_v1.F_normalize(output),
+        F_normalize(output),
         torch.tensor([[1.0, 0.0]]),
     )
 

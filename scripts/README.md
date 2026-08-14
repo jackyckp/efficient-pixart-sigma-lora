@@ -1,9 +1,7 @@
 # Script entry points
 
-Use the public CLI files below. Files ending in `_impl.py` or carrying a
-version suffix inside `distillation/` are internal compatibility layers used
-by those CLIs and by the regression tests; they are not duplicate entry
-points.
+Use the public CLI files below. Files ending in `_impl.py` contain the tested
+implementation behind those CLIs and are not separate entry points.
 
 ## Data
 

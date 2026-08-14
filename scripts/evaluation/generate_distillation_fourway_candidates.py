@@ -28,7 +28,7 @@ from scripts.distillation.evaluation_prompt_cache import (  # noqa: E402
     DEFAULT_CACHE,
     load_evaluation_prompt_cache,
 )
-from scripts.distillation.generate_evaluation_set_v2_uncached import (  # noqa: E402
+from scripts.distillation.generate_evaluation_set_impl import (  # noqa: E402
     _generate_teacher_final,
 )
 

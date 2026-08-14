@@ -138,13 +138,20 @@ def load_trajectory_cache(
     all_prompt_indices: list[torch.Tensor] = []
     all_seeds: list[torch.Tensor] = []
     for shard in manifest.get("shards", []):
-        path = cache_dir / shard["file"]
+        path = (cache_dir / shard["file"]).resolve()
+        try:
+            path.relative_to(cache_dir.resolve())
+        except ValueError as error:
+            raise ValueError(f"Unsafe trajectory shard path: {path}") from error
         if not path.is_file() or sha256_file(path) != shard["sha256"]:
             raise ValueError(f"Trajectory shard SHA mismatch: {path}")
         tensors = load_file(path, device="cpu")
         states = tensors["states"]
-        if states.ndim != 6 or states.shape[1:] != (21, *LATENT_SHAPE):
-            raise ValueError(f"Invalid trajectory states shape in {path}.")
+        if states.ndim != 5 or states.shape[1:] != (21, *LATENT_SHAPE):
+            raise ValueError(
+                f"Trajectory states must be [N,21,4,64,64], got "
+                f"{tuple(states.shape)} in {path}."
+            )
         if states.dtype != torch.float16 or not bool(torch.isfinite(states).all()):
             raise ValueError(f"Invalid trajectory states values in {path}.")
         all_states.append(states)
@@ -187,7 +194,24 @@ def _forward_epsilon(
     return split_epsilon_prediction(output)
 
 
-def _save_checkpoint(
+def existing_best_interval_loss(output_dir: Path) -> float:
+    """Read the loss of the adapter currently promoted as stage best."""
+    selection_path = output_dir / "best_checkpoint.json"
+    if not selection_path.is_file():
+        return math.inf
+    try:
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+        checkpoint = Path(selection["checkpoint"])
+        metadata = json.loads(
+            (checkpoint / "checkpoint_metadata.json").read_text(encoding="utf-8")
+        )
+        value = float(metadata["interval_mean_loss"])
+    except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError):
+        return math.inf
+    return value if math.isfinite(value) else math.inf
+
+
+def _save_checkpoint_unchecked(
     *,
     accelerator: Any,
     transformer: torch.nn.Module,
@@ -231,6 +255,18 @@ def _save_checkpoint(
             },
         )
     return checkpoint
+
+
+def _save_checkpoint(*, best: bool, output_dir: Path, metadata: dict, **kwargs):
+    """Preserve a better adapter selected before checkpoint resume."""
+    prior_best = existing_best_interval_loss(output_dir)
+    current = float(metadata["interval_mean_loss"])
+    return _save_checkpoint_unchecked(
+        best=best and current < prior_best,
+        output_dir=output_dir,
+        metadata=metadata,
+        **kwargs,
+    )
 
 
 def train(args: argparse.Namespace) -> dict[str, Any]:
@@ -374,7 +410,7 @@ def train(args: argparse.Namespace) -> dict[str, Any]:
     write_json(output_dir / "run_config.json", metadata_base)
 
     checkpoint_losses: list[float] = []
-    best_interval_loss = math.inf
+    best_interval_loss = existing_best_interval_loss(output_dir)
     started = time.perf_counter()
     torch.cuda.reset_peak_memory_stats()
     transformer.train()

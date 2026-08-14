@@ -21,8 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.distillation.evaluate_distilled_impl_clip_compat import F_normalize
-from scripts.distillation.evaluate_distilled_impl_v1 import unbiased_cmmd
+from scripts.distillation.evaluate_distilled_impl import F_normalize, unbiased_cmmd
 
 
 DEFAULT_ROOT = (

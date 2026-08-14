@@ -62,8 +62,8 @@ def test_cache_rejects_changed_prompt_text(tmp_path: Path) -> None:
 
 
 def test_generation_parsers_default_to_persistent_cache() -> None:
-    from scripts.distillation.generate_evaluation_set_v2 import build_parser as full_parser
-    from scripts.distillation.generate_student_evaluation_set_v2 import (
+    from scripts.distillation.generate_evaluation_set_impl import build_parser as full_parser
+    from scripts.distillation.generate_student_evaluation_set_impl import (
         build_parser as student_parser,
     )
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import re
 import subprocess
 import sys
 import time
@@ -35,6 +36,10 @@ TEACHERS = (
         "guidance_scale": 1.5,
     },
 )
+
+_STEP_DIRECTORY = re.compile(r"^step_(\d{6})$")
+_STAGE_MAX_STEPS = {4: 2_000, 2: 10_000}
+_AUTO_RESUME_ENABLED = True
 
 
 class QualityGateError(RuntimeError):
@@ -214,6 +219,81 @@ def cache_command(
     ]
 
 
+def _checkpoint_step_if_valid(
+    checkpoint: Path,
+    *,
+    target_steps: int,
+    max_train_steps: int,
+) -> int | None:
+    """Validate the inexpensive checkpoint contract before resuming."""
+    match = _STEP_DIRECTORY.fullmatch(checkpoint.name)
+    if match is None or not checkpoint.is_dir():
+        return None
+    directory_step = int(match.group(1))
+    if not 0 < directory_step < max_train_steps:
+        return None
+    adapter_dir = checkpoint / "lora_adapter"
+    required_files = (
+        checkpoint / "checkpoint_metadata.json",
+        checkpoint / "training_state.pt",
+        adapter_dir / "adapter_config.json",
+        adapter_dir / "adapter_model.safetensors",
+    )
+    if any(not path.is_file() or path.stat().st_size == 0 for path in required_files):
+        return None
+    try:
+        metadata = read_json(checkpoint / "checkpoint_metadata.json")
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    expected = {
+        "status": "CHECKPOINT",
+        "run_role": "phased_joint_lora_student",
+        "target_inference_steps": target_steps,
+        "max_train_steps": max_train_steps,
+        "optimizer_step": directory_step,
+        "rank": 16,
+        "lora_alpha": 16,
+    }
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        return None
+    fingerprint = metadata.get("prompt_bank_fingerprint")
+    if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+        return None
+    return directory_step
+
+
+def latest_resume_checkpoint(
+    output_dir: Path,
+    *,
+    target_steps: int,
+    max_train_steps: int | None = None,
+) -> Path | None:
+    """Return the newest complete checkpoint that the trainer can continue."""
+    if target_steps not in _STAGE_MAX_STEPS:
+        raise ValueError(f"Unsupported target step count: {target_steps}")
+    expected_max = _STAGE_MAX_STEPS[target_steps]
+    if max_train_steps is None:
+        max_train_steps = expected_max
+    if max_train_steps != expected_max:
+        raise ValueError(
+            f"Expected max_train_steps={expected_max} for {target_steps}-step, "
+            f"got {max_train_steps}."
+        )
+    checkpoint_root = output_dir.resolve() / "checkpoints"
+    if not checkpoint_root.is_dir():
+        return None
+    valid: list[tuple[int, Path]] = []
+    for candidate in checkpoint_root.iterdir():
+        step = _checkpoint_step_if_valid(
+            candidate,
+            target_steps=target_steps,
+            max_train_steps=max_train_steps,
+        )
+        if step is not None:
+            valid.append((step, candidate.resolve()))
+    return max(valid, default=(0, None), key=lambda item: item[0])[1]
+
+
 def training_command(
     *,
     cache_dir: Path,
@@ -222,7 +302,7 @@ def training_command(
     target_steps: int,
     output_dir: Path,
 ) -> list[str]:
-    return [
+    command = [
         sys.executable,
         script_path("train_phased_distill_lora.py"),
         "--trajectory-cache",
@@ -236,6 +316,18 @@ def training_command(
         "--output-dir",
         str(output_dir),
     ]
+    if _AUTO_RESUME_ENABLED:
+        checkpoint = latest_resume_checkpoint(
+            output_dir,
+            target_steps=target_steps,
+        )
+        if checkpoint is not None:
+            command.extend(("--resume-from", str(checkpoint)))
+            print(
+                f"AUTO-RESUME {target_steps}-step training from {checkpoint}",
+                flush=True,
+            )
+    return command
 
 
 def evaluation_generation_command(
@@ -287,6 +379,8 @@ def metric_command(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    global _AUTO_RESUME_ENABLED
+    _AUTO_RESUME_ENABLED = not bool(args.rerun_completed)
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     state_path = output_root / "full_distillation_summary.json"

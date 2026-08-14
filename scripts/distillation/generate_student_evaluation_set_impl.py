@@ -23,9 +23,12 @@ from scripts.distillation.common import (  # noqa: E402
     write_json,
 )
 from scripts.distillation.generate_evaluation_set_impl import (  # noqa: E402
-    _encode_unique_prompts,
     _load_records,
     _student_latent,
+)
+from scripts.distillation.evaluation_prompt_cache import (  # noqa: E402
+    DEFAULT_CACHE,
+    load_evaluation_prompt_cache,
 )
 
 
@@ -36,14 +39,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--student-adapter", type=Path, required=True)
     parser.add_argument("--student-steps", type=int, choices=(2, 4), required=True)
     parser.add_argument("--evaluation-prompts", type=Path, required=True)
+    parser.add_argument(
+        "--evaluation-prompt-cache", type=Path, default=DEFAULT_CACHE
+    )
     parser.add_argument("--reference-teacher-images", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--prompt-limit", type=int, default=30)
     parser.add_argument("--seeds-per-prompt", type=int, default=4)
     parser.add_argument("--transformer-model", default=TRANSFORMER_MODEL)
     parser.add_argument("--component-model", default=COMPONENT_MODEL)
-    parser.add_argument("--t5-gpu-memory", default="8GiB")
-    parser.add_argument("--t5-cpu-memory", default="24GiB")
     parser.add_argument(
         "--local-files-only",
         action=argparse.BooleanOptionalAction,
@@ -51,6 +55,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--overwrite", action="store_true")
     return parser
+
+
+def _encode_unique_prompts(
+    records: Sequence[dict[str, Any]], args: argparse.Namespace
+) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
+    return load_evaluation_prompt_cache(
+        args.evaluation_prompt_cache,
+        records,
+        component_model=args.component_model,
+    )
 
 
 def validate_teacher_references(

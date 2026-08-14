@@ -4,9 +4,7 @@ import json
 from pathlib import Path
 
 import scripts.distillation.run_full_two_teacher_distillation as runner
-from scripts.distillation import (
-    run_full_two_teacher_distillation_auto_resume as resume_impl,
-)
+from scripts.distillation import run_full_two_teacher_distillation_impl as resume_impl
 
 
 FINGERPRINT = "f" * 64
