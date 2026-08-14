@@ -28,7 +28,6 @@ data/*
 *.safetensors
 *.bin
 *.onnx
-*.zip
 *.tar
 *.tar.gz
 
@@ -59,4 +58,6 @@ evaluation/**/images/
 evaluation/**/*.png
 !evaluation/examples/**/*.png
 
-efficient_pixart_sigma_lora_5min_outline.md
+!data/archives/ink.zip
+!data/**/ink.zip
+!**/ink.zip
