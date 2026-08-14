@@ -55,8 +55,11 @@ def main():
     clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", use_safetensors=True).to("cuda").eval()
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-    # Extract ground truth reference embeddings
-    ref_zip = root_dir / "data" / "archives" / "ink.zip"
+    ref_zip = (
+        (root_dir / "data" / "ink.zip")
+        if (root_dir / "data" / "ink.zip").is_file()
+        else (root_dir / "data" / "archives" / "ink.zip")
+    )
     ref_embeds = []
     with zipfile.ZipFile(ref_zip) as archive:
         image_names = [n for n in archive.namelist() if n.lower().endswith((".jpg", ".png", ".jpeg"))][:100]

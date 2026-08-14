@@ -20,11 +20,17 @@ from scripts.training.train_local_latent_lora import (
 
 ROOT = Path(__file__).resolve().parents[1]
 LATENT_BUNDLE = ROOT / "data" / "archives" / "clean_latents_512.zip"
-IMAGE_ARCHIVE = ROOT / "data" / "archives" / "ink.zip"
+IMAGE_ARCHIVE = (
+    (ROOT / "data" / "ink.zip")
+    if (ROOT / "data" / "ink.zip").is_file()
+    else (ROOT / "data" / "archives" / "ink.zip")
+)
 
 
 @pytest.fixture(scope="session")
 def latent_bundle():
+    if not LATENT_BUNDLE.is_file():
+        pytest.skip(f"Latent bundle not present: {LATENT_BUNDLE}")
     return load_latent_bundle(LATENT_BUNDLE)
 
 
@@ -95,6 +101,8 @@ def test_prompt_validation_summary_is_enforced(tmp_path: Path) -> None:
         )
 
 def test_archives_are_safe_and_uncorrupted() -> None:
+    if not LATENT_BUNDLE.is_file():
+        pytest.skip(f"Latent bundle not present: {LATENT_BUNDLE}")
     for path in (IMAGE_ARCHIVE, LATENT_BUNDLE):
         with zipfile.ZipFile(path) as archive:
             assert archive.testzip() is None
@@ -218,6 +226,8 @@ def test_validate_assets_only_passes_without_prompt_cache(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    if not LATENT_BUNDLE.is_file():
+        pytest.skip(f"Latent bundle not present: {LATENT_BUNDLE}")
     missing_prompt = tmp_path / "not_created.pt"
     result = main(
         [

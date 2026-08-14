@@ -10,6 +10,9 @@ This guide provides complete, step-by-step instructions to train, distill, evalu
 ## 📑 Table of Contents
 
 - [0. Prerequisites & Environment Setup](#0-prerequisites--environment-setup)
+  - [0.1 Environment Setup & Dependencies](#01-environment-setup--dependencies)
+  - [0.2 Clean GitHub Clone: Tracked vs. Excluded Files](#02-clean-github-clone-tracked-vs-excluded-files)
+  - [0.3 Three Reproduction Tracks (Which One to Choose?)](#03-three-reproduction-tracks-which-one-to-choose)
 - 🎨 **[Phase 1: Style Teacher Adaptation & Data Pipeline (Stages 0–2)](#phase-1-style-teacher-adaptation--data-pipeline)**
   - [1. Stage 0: Data Acquisition & Preprocessing (Optional)](#1-stage-0-data-acquisition--preprocessing-optional)
   - [2. Stage 1: Style Teacher Training (20-Step LoRA)](#2-stage-1-style-teacher-training-20-step-lora)
@@ -43,16 +46,55 @@ conda env create -f environment.yml
 conda activate pixart311
 ```
 
-### 0.2 Local Assets Verification
-Verify required raw and feature assets located in [`data/`](data/README.md):
-- `data/archives/ink.zip` (260 image-caption pairs)
-- `data/archives/clean_latents_512.zip` (Precomputed 512px SDXL VAE clean latents: `image_latents_n260_res512_b9d3c2d1d404.pt`)
-- `data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` (T5-XXL text prompt embeddings)
+---
 
-Run asset contract validation:
-```powershell
-py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only
+### 0.2 Clean GitHub Clone: Tracked vs. Excluded Files
+
+When you clone this repository fresh from GitHub, large data binaries and checkpoints are excluded by `.gitignore` due to GitHub storage limits. Here is what is present versus what is created dynamically:
+
+| Component | Status in Clean Git Clone | How to Obtain / Generate |
+| :--- | :--- | :--- |
+| **Source Code & Tests** (`scripts/`, `tests/`) | ✅ **Tracked** | Present immediately after cloning. |
+| **Evaluation Prompts & Metrics** (`evaluation/`) | ✅ **Tracked** | 30 held-out evaluation prompts and benchmark CSVs are tracked. |
+| **Model Cards & Configs** (`models/*/adapter_config.json`) | ✅ **Tracked** | Parameter configurations and JSON metadata are tracked. |
+| **Base Model Weights** (`PixArt-Sigma-XL-2-512-MS`) | ☁️ **Auto-Downloaded** | Downloaded automatically from Hugging Face on first execution. |
+| **Raw Images & Latents** (`data/archives/*.zip`) | 📦 **Excluded** | Download from shared team storage OR build using Stage 0. |
+| **T5 Prompt Embeddings** (`data/features/*.pt`) | 📦 **Excluded** | Download from shared storage OR build using Stage 3. |
+| **LoRA Safetensors Weights** (`adapter_model.safetensors`) | 📦 **Excluded** | Download from model releases OR train locally via Stages 1–8. |
+| **Trajectory Caches & Outputs** (`outputs/`) | ⚙️ **Generated** | Built dynamically during distillation stages. |
+
+---
+
+### 0.3 Three Reproduction Tracks (Which One to Choose?)
+
+Depending on your goal, choose one of the three paths below:
+
+```mermaid
+flowchart TD
+    A[Clean Git Clone] --> B{Choose Goal}
+    B -->|Track A: Run Inference Only| C[Download Pretrained LoRA Safetensors]
+    C --> D[Run Fast 2-Step Inference in ~0.24s]
+    B -->|Track B: Full Training with Shared Assets| E[Place ink.zip & clean_latents.zip in data/]
+    E --> F[Validate Assets -> Train Style Teacher -> Distill Students]
+    B -->|Track C: 100% From-Scratch Cold Start| G[Scrape Images -> Auto-Caption VLM -> Precompute VAE Latents]
+    G --> F
 ```
+
+- **Track A: Quick Inference & Evaluation Only**
+  - Download the pre-trained `adapter_model.safetensors` via the built-in downloader:
+    ```powershell
+    py -3.11.2 scripts/inference/download_adapters.py --model teacher_b_primary_2step
+    ```
+  - Jump directly to [Stage 11: Fast Single-Image Inference Deployment](#12-stage-11-fast-single-image-inference-deployment--acceptance-records).
+  - The base PixArt-Sigma model downloads automatically from Hugging Face.
+
+- **Track B: Training & Distillation with Shared Asset Bundle (Standard Reproduction)**
+  - Place `ink.zip`, `clean_latents_512.zip`, and `t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` in `data/`.
+  - Validate assets with `py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only`.
+  - Proceed with [Stage 1: Style Teacher Training](#2-stage-1-style-teacher-training-20-step-lora) or [Stage 6: Distillation](#7-stage-6-student-4-step-distillation-training).
+
+- **Track C: 100% From-Scratch Cold Start (Zero External Data Required)**
+  - Start from [Stage 0: Data Acquisition & Preprocessing](#1-stage-0-data-acquisition--preprocessing-optional) to scrape images, generate VLM captions, compute SDXL VAE clean latents, and encode T5 embeddings.
 
 ---
 
@@ -76,6 +118,9 @@ py -3.11.2 scripts/data/auto_caption.py `
   --model florence-2 `
   --trigger "traditional Chinese ink wash painting style, shuimo hua"
 ```
+
+#### 1.3 Precomputing Clean SDXL VAE Latents
+Encode preprocessed 512×512 images into clean `[260, 4, 64, 64]` FP16 latents (`scaling_factor=0.13025`) using `notebooks/preprocessing/pixart_clean_latents_colab.ipynb` or local VAE encoding, saving the resulting archive to `data/archives/clean_latents_512.zip`.
 
 ---
 

@@ -104,7 +104,11 @@ def compute_cmmd(gen_embeds: torch.Tensor, ref_embeds: torch.Tensor, sigma: floa
 
 def extract_reference_embeddings(clip_model, clip_processor, root_dir: Path) -> torch.Tensor:
     print("Extracting CLIP embeddings for reference ground-truth ink wash images...")
-    ref_zip = root_dir / "data" / "archives" / "ink.zip"
+    ref_zip = (
+        (root_dir / "data" / "ink.zip")
+        if (root_dir / "data" / "ink.zip").is_file()
+        else (root_dir / "data" / "archives" / "ink.zip")
+    )
     ref_embeds = []
 
     with zipfile.ZipFile(ref_zip) as archive:

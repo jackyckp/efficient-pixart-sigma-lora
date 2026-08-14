@@ -23,6 +23,8 @@ LATENT_BUNDLE = ROOT / "data" / "archives" / "clean_latents_512.zip"
 
 
 def test_plant_category_selection_is_strict_and_complete() -> None:
+    if not LATENT_BUNDLE.is_file():
+        pytest.skip(f"Latent bundle not present: {LATENT_BUNDLE}")
     latent_bundle = load_latent_bundle(LATENT_BUNDLE)
     plant_ids = deterministic_subset_ids(
         latent_bundle.sample_ids,

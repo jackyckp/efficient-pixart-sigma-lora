@@ -37,7 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--image-archive",
         type=Path,
-        default=root / "data" / "archives" / "ink.zip",
+        default=(
+            root / "data" / "ink.zip"
+            if (root / "data" / "ink.zip").is_file()
+            else root / "data" / "archives" / "ink.zip"
+        ),
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--clip-model", default=DEFAULT_CLIP_MODEL)

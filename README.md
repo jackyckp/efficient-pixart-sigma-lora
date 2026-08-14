@@ -28,19 +28,20 @@ Tracked: source code under `scripts/`, tests, notebooks, documentation, evaluati
 
 Excluded: image datasets, latent archives, prompt embeddings, trajectory caches, checkpoints, LoRA adapters, model weights, generated outputs, and generated PowerPoint/PDF files. Do not bypass this policy with `git add -f`.
 
-## Local assets required for training
+## Getting Started from a Clean GitHub Clone
 
-Obtain the following from the team's shared storage after cloning. They are intentionally not distributed through GitHub because of size and data-distribution constraints.
+Due to GitHub size limits, raw datasets, precomputed latents, and model weights are excluded by `.gitignore`. You can choose from **three reproduction paths**:
 
-| Local path | Purpose |
-| --- | --- |
-| `data/archives/ink.zip` | 260 image-caption pairs |
-| `data/archives/clean_latents_512.zip` | Precomputed 512px clean VAE latents |
-| `data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` | Local-training prompt embeddings |
-| `data/features/distill_t5_plant627_len300_fp16_v1.pt` | Distillation prompt-bank embeddings |
-| `data/features/distill_eval_t5_prompts30_len300_fp16_v1.pt` | Cached held-out evaluation embeddings |
+1. **Track A: Inference & Evaluation (No training required)**
+   - Download adapter weights (`py -3.11.2 scripts/inference/download_adapters.py --model teacher_b_primary_2step`).
+   - Run 2-step fast inference (`scripts/distillation/generate_distilled.py`). Base model weights auto-download from Hugging Face.
+2. **Track B: Training & Distillation with Shared Asset Bundle (Standard Reproduction)**
+   - Download the data bundle (`ink.zip`, `clean_latents_512.zip`, `t5_embeddings_*.pt`) into `data/`.
+   - Validate assets with `py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only`.
+3. **Track C: 100% From-Scratch Cold Start**
+   - Scrape images (`scripts/data/download_tappu.py`), auto-caption with VLMs (`scripts/data/auto_caption.py`), compute SDXL VAE clean latents, and train from scratch.
 
-See [data/README.md](data/README.md) for asset and validation contracts.
+See [INSTRUCTIONS.md](INSTRUCTIONS.md) for full step-by-step commands and [data/README.md](data/README.md) for data schemas.
 
 ## Setup and entry points
 
@@ -65,22 +66,65 @@ Validate local data assets:
 py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only
 ```
 
-The distillation method, CLI entry points, cache formats, and evaluation gates are documented in [DISTILLATION.md](DISTILLATION.md). Main pipeline scripts are:
+The distillation method, CLI entry points, cache formats, and evaluation gates are documented in [INSTRUCTIONS.md](INSTRUCTIONS.md) and [ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md). Main pipeline scripts are:
 
 - `scripts/distillation/cache_teacher_trajectories.py`
 - `scripts/distillation/train_phased_distill_lora.py`
 - `scripts/distillation/generate_evaluation_set.py`
 - `scripts/distillation/evaluate_distilled.py`
 
-## Layout
+## Repository Structure & Folder Layout
 
 ```text
-data/           local asset contract only (assets are ignored)
-evaluation/     tracked metrics, prompts, and curated examples
-notebooks/      preprocessing and smoke-test notebooks
-scripts/        data preparation, training, distillation, and evaluation code
-tests/          contract and regression tests
-presentation/   final outline and slide-template source
+efficient-pixart-sigma-lora/
+├── data/                                 # Local asset contracts & datasets
+│   ├── README.md                         # ✅ Tracked: Data contracts & schema specifications
+│   ├── ink.zip                           # 📦 Download / Scraped: 260 raw image-caption pairs
+│   ├── archives/                         # 📦 Generated / Download: Precomputed clean latents
+│   │   └── clean_latents_512.zip         #    └─ SDXL VAE clean latents [260, 4, 64, 64]
+│   └── features/                         # 📦 Generated / Download: Precomputed prompt caches
+│       ├── t5_embeddings_n260_*.pt       #    ├─ Stage 1 Style Teacher prompt embeddings [260, 300, 4096]
+│       ├── distill_t5_plant627_*.pt      #    ├─ Stage 3 Distillation prompt cache (via build_distill_prompt_cache.py)
+│       └── validation_summary.json       #    └─ Dataset integrity & fingerprint validation record
+│
+├── models/                               # Pretrained LoRA adapter checkpoints & configs
+│   ├── teacher_b_primary_2step/          # ✅ Tracked: Primary 2-step student (adapter_model.safetensors, adapter_config.json)
+│   ├── teacher_b_primary_4step/          # ✅ Tracked: Primary 4-step student (adapter_model.safetensors, adapter_config.json)
+│   └── best_ink_wash_lora_plant209_step4000/ # ✅ Tracked: 20-step Style Teacher LoRA adapter
+│
+├── notebooks/                            # Interactive Jupyter & Google Colab notebooks
+│   ├── preprocessing/                    # 🛠️ Data preparation & VAE encoding
+│   │   └── pixart_clean_latents_colab.ipynb # └─ Colab T4 GPU latent encoding notebook
+│   └── evaluation/                       # 📊 Benchmark & report analysis notebooks
+│       ├── eval_30prompts_cmmd.ipynb     #    ├─ 30-prompt CMMD & CLIPScore evaluation
+│       ├── pixart_data_prep_teacher_eval.ipynb # ├─ Data prep & teacher inspection
+│       ├── pixart_matrix_analysis.ipynb  #    ├─ Multi-parameter sweep analysis
+│       └── training_10k_report.ipynb     #    └─ 10k style teacher training report
+│
+├── scripts/                              # Executable CLI tools & training pipelines
+│   ├── data/                             # 📥 Scraping (download_tappu.py) & VLM captioning (auto_caption.py)
+│   ├── training/                         # 🏋️ Style teacher training & parameter sweeps
+│   ├── distillation/                     # ⚡ Phased distillation, trajectory caching & quality gates
+│   ├── evaluation/                       # 📈 CLIPScore, CMMD, and checkpoint grid generators
+│   └── inference/                        # 🚀 Single-prompt & batch inference, adapter downloader
+│
+├── evaluation/                           # Benchmark prompts, evaluation records & curated examples
+│   ├── distillation_prompts_v1.json      # ✅ Tracked: 30 held-out evaluation prompts across 4 domains
+│   ├── all_4step_2step_training_evaluation_results.csv # ✅ Tracked: Complete multi-step evaluation logs
+│   ├── distillation_extended_results_v2.json # ✅ Tracked: Primary benchmark results & metrics
+│   └── examples/                         # ✅ Tracked: Curated 512x512 comparison grids
+│
+├── docs/                                 # Technical documentation, proposals & visual figures
+│   ├── style_teacher_evaluation_report.md# Comprehensive style teacher evaluation report
+│   ├── Project-Proposal.md               # Original research project proposal
+│   └── images/                           # Evaluation plots and visual comparison samples
+│
+├── outputs/                              # ⚙️ Generated during execution (excluded by .gitignore)
+│   ├── style_teacher/                    # ⚙️ Generated: Style teacher checkpoints & training logs
+│   ├── distillation/                     # ⚙️ Generated: Trajectory cache shards, student checkpoints & eval metrics
+│   └── benchmark_30prompts/              # ⚙️ Generated: 30-prompt benchmark images & CMMD evaluation reports
+│
+└── tests/                                # Automated test suite (17 test suites, 72 pytest cases)
 ```
 
 Each run records prompt-cache fingerprints, teacher/adapter hashes, checkpoint, seed, and scheduler configuration. A clone therefore needs the listed external assets to reproduce training, but not to inspect the complete implementation and reported results.

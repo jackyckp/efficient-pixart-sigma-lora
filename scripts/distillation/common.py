@@ -137,6 +137,7 @@ def write_json(path: str | Path, payload: Any) -> None:
 
 
 def resolve_adapter_dir(path: str | Path) -> Path:
+    str_path = str(path).strip()
     candidate = Path(path).resolve()
     direct = candidate / "adapter_model.safetensors"
     nested = candidate / "lora_adapter" / "adapter_model.safetensors"
@@ -146,9 +147,23 @@ def resolve_adapter_dir(path: str | Path) -> Path:
         candidate / "lora_adapter" / "adapter_config.json"
     ).is_file():
         return candidate / "lora_adapter"
+
+    # If not found locally and resembles a Hugging Face Hub repo ID (e.g. 'org/model')
+    if "/" in str_path and not Path(str_path).exists() and not str_path.startswith(("/", ".", "\\")) and ":" not in str_path:
+        try:
+            from huggingface_hub import snapshot_download
+            print(f"[*] Adapter path not found locally. Attempting download from Hugging Face Hub: {str_path}")
+            downloaded = Path(snapshot_download(repo_id=str_path))
+            if (downloaded / "adapter_model.safetensors").is_file():
+                return downloaded
+            if (downloaded / "lora_adapter" / "adapter_model.safetensors").is_file():
+                return downloaded / "lora_adapter"
+        except Exception as e:
+            pass
+
     raise FileNotFoundError(
         "No PEFT adapter found. Expected adapter_config.json and "
-        f"adapter_model.safetensors in {candidate} or its lora_adapter/."
+        f"adapter_model.safetensors in {candidate} or its lora_adapter/ (or a valid Hugging Face repo ID)."
     )
 
 
