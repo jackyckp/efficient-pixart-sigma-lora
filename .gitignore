@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+tmp/
 .venv/
 venv/
 env/
@@ -42,6 +43,7 @@ checkpoints/
 
 # Generated presentation artifacts; source template and outline are tracked.
 presentation/tmp_google_slides_build/
+presentation/montage_convert_*/
 presentation/*.pptx
 presentation/*.inspect.ndjson
 presentation/**/*.aux
@@ -52,6 +54,20 @@ presentation/**/*.pdf
 presentation/**/*.snm
 presentation/**/*.synctex.gz
 presentation/**/*.toc
+
+# LaTeX build products; keep the final report source, PDF, and figures.
+report/**/*.aux
+report/**/*.bbl
+report/**/*.blg
+report/**/*.fdb_latexmk
+report/**/*.fls
+report/**/*.log
+report/**/*.out
+report/**/*.synctex.gz
+report/**/*.toc
+report/Numerical_Experiments_*
+report/Report_Template.*
+report/figures_ZHS.zip
 
 # Keep only intentional, curated images under evaluation/examples/.
 evaluation/**/images/

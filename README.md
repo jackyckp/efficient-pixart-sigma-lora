@@ -1,6 +1,6 @@
 # Efficient PixArt-Sigma LoRA
 
-This project adapts PixArt-Sigma 512 to Chinese ink-wash plant imagery, then distils a 20-step style teacher into 4-step and 2-step joint LoRA students. The GitHub repository contains code, experiment contracts, evaluation summaries, and a deliberately small curated visual set; raw data and model artifacts remain local or in shared storage.
+This project adapts PixArt-Sigma 512 to Chinese ink-wash plant imagery, then distils a 20-step style teacher into 4-step and 2-step joint LoRA students. The repository contains the implementation, experiment contracts, selected adapters, the canonical image-caption archive, evaluation summaries, and curated visual results. Large latent and embedding caches remain local or in shared storage.
 
 ## Primary result: Teacher B 6k -> 4-step / 2-step
 
@@ -24,19 +24,19 @@ Nine existing 512 x 512 images are versioned, with no new images generated for r
 
 ## Repository boundary
 
-Tracked: source code under `scripts/`, tests, notebooks, documentation, evaluation prompts/tables, the presentation outline/template source, and the nine curated images above.
+Tracked: source code under `scripts/`, tests, notebooks, documentation, evaluation prompts/tables, selected LoRA adapters under `models/`, `data/ink.zip`, presentation assets, and the final report source/PDF.
 
-Excluded: image datasets, latent archives, prompt embeddings, trajectory caches, checkpoints, LoRA adapters, model weights, generated outputs, and generated PowerPoint/PDF files. Do not bypass this policy with `git add -f`.
+Excluded: latent archives, prompt embeddings, trajectory caches, intermediate checkpoints, generated training/evaluation outputs, and presentation/LaTeX build products. Do not bypass this policy with `git add -f`.
 
 ## Getting Started from a Clean GitHub Clone
 
-Due to GitHub size limits, raw datasets, precomputed latents, and model weights are excluded by `.gitignore`. You can choose from **three reproduction paths**:
+Due to GitHub size limits, precomputed latents, prompt embeddings, trajectory caches, and intermediate checkpoints are excluded by `.gitignore`. You can choose from **three reproduction paths**:
 
 1. **Track A: Inference & Evaluation (No training required)**
    - Download adapter weights (`py -3.11.2 scripts/inference/download_adapters.py --model teacher_b_primary_2step`).
    - Run 2-step fast inference (`scripts/distillation/generate_distilled.py`). Base model weights auto-download from Hugging Face.
 2. **Track B: Training & Distillation with Shared Asset Bundle (Standard Reproduction)**
-   - Download the data bundle (`ink.zip`, `clean_latents_512.zip`, `t5_embeddings_*.pt`) into `data/`.
+   - Use the tracked `data/ink.zip`, then obtain `clean_latents_512.zip` and `t5_embeddings_*.pt` from shared storage.
    - Validate assets with `py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only`.
 3. **Track C: 100% From-Scratch Cold Start**
    - Scrape images (`scripts/data/download_tappu.py`), auto-caption with VLMs (`scripts/data/auto_caption.py`), compute SDXL VAE clean latents, and train from scratch.
@@ -126,5 +126,9 @@ efficient-pixart-sigma-lora/
 │
 └── tests/                                # Automated test suite (17 test suites, 72 pytest cases)
 ```
+
+Final presentation source/assets live in `presentation/`. The five-page paper,
+its three figures, and the compiled submission PDF live in `report/`; temporary
+PowerPoint and LaTeX build files are ignored.
 
 Each run records prompt-cache fingerprints, teacher/adapter hashes, checkpoint, seed, and scheduler configuration. A clone therefore needs the listed external assets to reproduce training, but not to inspect the complete implementation and reported results.
