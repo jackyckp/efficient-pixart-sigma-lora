@@ -62,7 +62,7 @@ pip install -r requirements.txt
 Validate local data assets:
 
 ```powershell
-py -3.11 scripts/training/train_local_latent_lora.py --validate-assets-only
+py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only
 ```
 
 The distillation method, CLI entry points, cache formats, and evaluation gates are documented in [DISTILLATION.md](DISTILLATION.md). Main pipeline scripts are:

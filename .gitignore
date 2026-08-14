@@ -58,6 +58,4 @@ evaluation/**/images/
 evaluation/**/*.png
 !evaluation/examples/**/*.png
 
-!data/archives/ink.zip
 !data/**/ink.zip
-!**/ink.zip

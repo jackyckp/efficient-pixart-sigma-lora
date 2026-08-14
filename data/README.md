@@ -46,13 +46,13 @@ data/
 Before launching training or distillation pipelines, validate the presence, schema, and checksums of local assets:
 
 ```powershell
-conda activate pixart311 ; python scripts/training/train_local_latent_lora.py --validate-assets-only
+py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only
 ```
 
 For distillation prompt cache validation:
 
 ```powershell
-conda activate pixart311 ; python -m pytest tests/test_local_asset_contract.py tests/test_distillation_cache_contract.py
+py -3.11.2 -m pytest tests/test_local_asset_contract.py tests/test_distillation_cache_contract.py
 ```
 
 ---
@@ -64,13 +64,13 @@ If starting from scratch without precomputed archives:
 ### 4.1 Data Scraping & Preparation
 Scrape raw Chinese ink-wash paintings into category folders:
 ```powershell
-conda activate pixart311 ; python scripts/data/download_tappu.py
+py -3.11.2 scripts/data/download_tappu.py
 ```
 
 ### 4.2 Automated VLM Captioning
 Generate descriptive captions with domain trigger words using Florence-2 / JoyCaption:
 ```powershell
-conda activate pixart311 ; python scripts/data/auto_caption.py `
+py -3.11.2 scripts/data/auto_caption.py `
   --dir data/ink/plant `
   --model florence-2 `
   --trigger "traditional Chinese ink wash painting style, shuimo hua"
@@ -79,7 +79,7 @@ conda activate pixart311 ; python scripts/data/auto_caption.py `
 ### 4.3 Building Distillation Prompt Bank & T5-XXL Embeddings
 Generate the 627-prompt bank and encode prompt embeddings with T5-XXL:
 ```powershell
-conda activate pixart311 ; python scripts/distillation/build_distill_prompt_cache.py `
+py -3.11.2 scripts/distillation/build_distill_prompt_cache.py `
   --latent-bundle data/archives/clean_latents_512.zip `
   --source-prompt-cache data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt `
   --prompt-bank data/distillation/plant_prompt_bank_v1.jsonl `
