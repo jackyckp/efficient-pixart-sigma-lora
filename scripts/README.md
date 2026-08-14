@@ -5,8 +5,9 @@ implementation behind those CLIs and are not separate entry points.
 
 ## Data
 
-- `data/auto_caption.py`: caption dataset images.
-- `data/download_tappu.py`: download the source dataset.
+- `data/precompute_clean_latents.py`: encode raw images from `data/ink.zip` into SDXL VAE clean latents and build `clean_latents_512.zip`.
+- `data/precompute_t5_embeddings.py`: tokenize captions and precompute T5-XXL FP16 embeddings for the base dataset.
+- `data/auto_caption.py`: optional tool to re-caption images using vision-language models.
 
 ## Style-teacher training and inference
 

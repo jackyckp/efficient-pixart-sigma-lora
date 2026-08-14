@@ -38,8 +38,8 @@ Due to GitHub size limits, precomputed latents, prompt embeddings, trajectory ca
 2. **Track B: Training & Distillation with Shared Asset Bundle (Standard Reproduction)**
    - Use the tracked `data/ink.zip`, then obtain `clean_latents_512.zip` and `t5_embeddings_*.pt` from shared storage.
    - Validate assets with `py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only`.
-3. **Track C: 100% From-Scratch Cold Start**
-   - Scrape images (`scripts/data/download_tappu.py`), auto-caption with VLMs (`scripts/data/auto_caption.py`), compute SDXL VAE clean latents, and train from scratch.
+3. **Track C: 100% From-Scratch Cold Start (Zero External Caches Required)**
+   - Use the canonical `data/ink.zip` directly to precompute SDXL VAE clean latents (`scripts/data/precompute_clean_latents.py`) and T5 prompt embeddings (`scripts/data/precompute_t5_embeddings.py`), then train from scratch.
 
 See [INSTRUCTIONS.md](INSTRUCTIONS.md) for full step-by-step commands and [data/README.md](data/README.md) for data schemas.
 
@@ -79,7 +79,7 @@ The distillation method, CLI entry points, cache formats, and evaluation gates a
 efficient-pixart-sigma-lora/
 ├── data/                                 # Local asset contracts & datasets
 │   ├── README.md                         # ✅ Tracked: Data contracts & schema specifications
-│   ├── ink.zip                           # 📦 Download / Scraped: 260 raw image-caption pairs
+│   ├── ink.zip                           # ✅ Tracked: 260 canonical raw image-caption pairs
 │   ├── archives/                         # 📦 Generated / Download: Precomputed clean latents
 │   │   └── clean_latents_512.zip         #    └─ SDXL VAE clean latents [260, 4, 64, 64]
 │   └── features/                         # 📦 Generated / Download: Precomputed prompt caches
@@ -102,7 +102,7 @@ efficient-pixart-sigma-lora/
 │       └── training_10k_report.ipynb     #    └─ 10k style teacher training report
 │
 ├── scripts/                              # Executable CLI tools & training pipelines
-│   ├── data/                             # 📥 Scraping (download_tappu.py) & VLM captioning (auto_caption.py)
+│   ├── data/                             # 📥 Latent & T5 precomputation, VLM captioning
 │   ├── training/                         # 🏋️ Style teacher training & parameter sweeps
 │   ├── distillation/                     # ⚡ Phased distillation, trajectory caching & quality gates
 │   ├── evaluation/                       # 📈 CLIPScore, CMMD, and checkpoint grid generators

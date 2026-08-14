@@ -14,11 +14,11 @@ Supported models
 
 Usage examples
 --------------
-  # Caption a single folder with Florence-2 (default)
+  # Caption a single folder with JoyCaption (default)
   python scripts/data/auto_caption.py --dir data/ink
 
   # Caption all dataset subfolders inside data/
-  python auto_caption.py --dir data --all-subsets --model florence-2
+  python auto_caption.py --dir data --all-subsets --model joycaption
 
   # Use JoyCaption, append trigger word, overwrite existing captions
   python auto_caption.py --dir data/dataset_web --model joycaption --overwrite
@@ -519,8 +519,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         choices=list(MODEL_CONFIGS.keys()),
-        default="florence-2",
-        help="Vision-language model to use for captioning (default: florence-2).",
+        default="joycaption",
+        help="Vision-language model to use for captioning (default: joycaption).",
     )
     parser.add_argument(
         "--max-tokens",

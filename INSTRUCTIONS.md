@@ -14,7 +14,12 @@ This guide provides complete, step-by-step instructions to train, distill, evalu
   - [0.2 Clean GitHub Clone: Tracked vs. Excluded Files](#02-clean-github-clone-tracked-vs-excluded-files)
   - [0.3 Three Reproduction Tracks (Which One to Choose?)](#03-three-reproduction-tracks-which-one-to-choose)
 - 🎨 **[Phase 1: Style Teacher Adaptation & Data Pipeline (Stages 0–2)](#phase-1-style-teacher-adaptation--data-pipeline)**
-  - [1. Stage 0: Data Acquisition & Preprocessing (Optional)](#1-stage-0-data-acquisition--preprocessing-optional)
+  - [1. Stage 0: Data Preparation & Precomputing Feature Caches](#1-stage-0-data-preparation--precomputing-feature-caches)
+    - [1.1 Canonical Raw Image Archive (`data/ink.zip`)](#11-canonical-raw-image-archive-datainkzip)
+    - [1.2 Automated VLM Captioning (Optional)](#12-automated-vlm-captioning-optional)
+    - [1.3 Precomputing Clean SDXL VAE Latents (`clean_latents_512.zip`)](#13-precomputing-clean-sdxl-vae-latents-clean_latents_512zip)
+    - [1.4 Precomputing T5-XXL Base Prompt Embeddings (`t5_embeddings_*.pt`)](#14-precomputing-t5-xxl-base-prompt-embeddings-t5_embeddings_pt)
+    - [1.5 Dataset Asset Contract Validation](#15-dataset-asset-contract-validation)
   - [2. Stage 1: Style Teacher Training (20-Step LoRA)](#2-stage-1-style-teacher-training-20-step-lora)
   - [3. Stage 2: Teacher Provenance Validation & Manifest Export](#3-stage-2-teacher-provenance-validation--manifest-export)
   - [4. Stage 3: Distillation Prompt Banking & T5-XXL Caching](#4-stage-3-distillation-prompt-banking--t5-xxl-caching)
@@ -58,8 +63,9 @@ When you clone this repository fresh from GitHub, large data binaries and checkp
 | **Evaluation Prompts & Metrics** (`evaluation/`) | ✅ **Tracked** | 30 held-out evaluation prompts and benchmark CSVs are tracked. |
 | **Model Cards & Configs** (`models/*/adapter_config.json`) | ✅ **Tracked** | Parameter configurations and JSON metadata are tracked. |
 | **Base Model Weights** (`PixArt-Sigma-XL-2-512-MS`) | ☁️ **Auto-Downloaded** | Downloaded automatically from Hugging Face on first execution. |
-| **Raw Images & Latents** (`data/archives/*.zip`) | 📦 **Excluded** | Download from shared team storage OR build using Stage 0. |
-| **T5 Prompt Embeddings** (`data/features/*.pt`) | 📦 **Excluded** | Download from shared storage OR build using Stage 3. |
+| **Raw Images & Captions** (`data/ink.zip`) | ✅ **Tracked / Included** | Canonical archive of 260 paired images and `.txt` captions. |
+| **Clean Latent Bundle** (`data/archives/clean_latents_512.zip`) | 📦 **Excluded** | Download from shared team storage OR build from `data/ink.zip` (Stage 0.3). |
+| **T5 Prompt Embeddings** (`data/features/*.pt`) | 📦 **Excluded** | Download from shared storage OR build using Stage 0.4 (base) / Stage 3 (distillation). |
 | **LoRA Safetensors Weights** (`adapter_model.safetensors`) | 📦 **Excluded** | Download from model releases OR train locally via Stages 1–8. |
 | **Trajectory Caches & Outputs** (`outputs/`) | ⚙️ **Generated** | Built dynamically during distillation stages. |
 
@@ -74,9 +80,9 @@ flowchart TD
     A[Clean Git Clone] --> B{Choose Goal}
     B -->|Track A: Run Inference Only| C[Download Pretrained LoRA Safetensors]
     C --> D[Run Fast 2-Step Inference in ~0.24s]
-    B -->|Track B: Full Training with Shared Assets| E[Place ink.zip & clean_latents.zip in data/]
+    B -->|Track B: Full Training with Shared Assets| E[Place clean_latents.zip & t5_embeddings.pt in data/]
     E --> F[Validate Assets -> Train Style Teacher -> Distill Students]
-    B -->|Track C: 100% From-Scratch Cold Start| G[Scrape Images -> Auto-Caption VLM -> Precompute VAE Latents]
+    B -->|Track C: 100% From-Scratch Cold Start| G[ink.zip -> Precompute Latents -> Precompute T5 Embeddings]
     G --> F
 ```
 
@@ -89,38 +95,75 @@ flowchart TD
   - The base PixArt-Sigma model downloads automatically from Hugging Face.
 
 - **Track B: Training & Distillation with Shared Asset Bundle (Standard Reproduction)**
-  - Place `ink.zip`, `clean_latents_512.zip`, and `t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` in `data/`.
+  - Place `data/ink.zip`, `data/archives/clean_latents_512.zip`, and `data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` into their respective directories.
   - Validate assets with `py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only`.
   - Proceed with [Stage 1: Style Teacher Training](#2-stage-1-style-teacher-training-20-step-lora) or [Stage 6: Distillation](#7-stage-6-student-4-step-distillation-training).
 
-- **Track C: 100% From-Scratch Cold Start (Zero External Data Required)**
-  - Start from [Stage 0: Data Acquisition & Preprocessing](#1-stage-0-data-acquisition--preprocessing-optional) to scrape images, generate VLM captions, compute SDXL VAE clean latents, and encode T5 embeddings.
+- **Track C: 100% From-Scratch Cold Start (Zero External Precomputed Caches Required)**
+  - Start from [Stage 0: Data Preparation & Precomputing Feature Caches](#1-stage-0-data-preparation--precomputing-feature-caches) to build clean SDXL VAE latents and base T5 embeddings directly from `data/ink.zip`.
 
 ---
 
 ## Phase 1: Style Teacher Adaptation & Data Pipeline
 
-### 1. Stage 0: Data Acquisition & Preprocessing (Optional)
+### 1. Stage 0: Data Preparation & Precomputing Feature Caches
 
-If starting completely from scratch without existing archives:
+If starting completely from scratch without existing precomputed feature caches:
 
-#### 1.1 Web Scraping Raw Images
-Scrapes ink-wash paintings into category folders under `data/ink/`:
-```powershell
-py -3.11.2 scripts/data/download_tappu.py
-```
+#### 1.1 Canonical Raw Image Archive (`data/ink.zip`)
+The repository includes the canonical 260-sample dataset directly as `data/ink.zip`, containing:
+- 260 paired RGB images and `.txt` captions across 4 categories (`plant`: 209, `animal`: 30, `web`: 11, `others`: 10).
+- Deterministic manifest SHA256 fingerprint: `b9d3c2d1d404`.
+- All downstream precomputation tools read `data/ink.zip` directly without any web scraping required.
 
-#### 1.2 Automated VLM Captioning
-Generate descriptive captions with domain trigger words using Florence-2 or JoyCaption:
+#### 1.2 Automated VLM Captioning (Optional)
+Captions are already curated inside `data/ink.zip`. If you wish to re-caption or extend the dataset with custom domain trigger words using **JoyCaption**:
 ```powershell
 py -3.11.2 scripts/data/auto_caption.py `
   --dir data/ink/plant `
-  --model florence-2 `
+  --model joycaption `
   --trigger "traditional Chinese ink wash painting style, shuimo hua"
 ```
 
-#### 1.3 Precomputing Clean SDXL VAE Latents
-Encode preprocessed 512×512 images into clean `[260, 4, 64, 64]` FP16 latents (`scaling_factor=0.13025`) using `notebooks/preprocessing/pixart_clean_latents_colab.ipynb` or local VAE encoding, saving the resulting archive to `data/archives/clean_latents_512.zip`.
+#### 1.3 Precomputing Clean SDXL VAE Latents (`clean_latents_512.zip`)
+Encode preprocessed 512×512 images (aspect-ratio-preserving LANCZOS center crop, $[-1, 1]$ normalized) into clean `[260, 4, 64, 64]` FP16 latents using the SDXL VAE bundled with PixArt-Sigma (`scaling_factor=0.13025`).
+
+**Option A: Local CLI Generation & Bundling**
+```powershell
+py -3.11.2 scripts/data/precompute_clean_latents.py `
+  --image-archive data/ink.zip `
+  --output-zip data/archives/clean_latents_512.zip `
+  --batch-size 8 `
+  --seed 42
+```
+
+**Option B: Google Colab / Cloud GPU Execution**
+Open and run [notebooks/preprocessing/pixart_clean_latents_colab.ipynb](file:///C:/dev/efficient-pixart-sigma-lora/notebooks/preprocessing/pixart_clean_latents_colab.ipynb) on a free T4 GPU to encode the images, inspect reconstruction grids, and download the resulting `clean_latents_512.zip`.
+
+> [!NOTE]
+> The resulting `clean_latents_512.zip` contains:
+> - `manifest.jsonl`: Deterministic sample IDs, image/caption paths, and dimensions.
+> - `image_latents_n260_res512_b9d3c2d1d404.pt`: `[260, 4, 64, 64]` FP16 scaled $x_0$ latents.
+> - `validation_summary.json`: Verifiable tensor statistics and SHA256 manifest fingerprint `b9d3c2d1d404`.
+
+#### 1.4 Precomputing T5-XXL Base Prompt Embeddings (`t5_embeddings_*.pt`)
+Tokenize the 260 captions to 300 tokens and pre-encode them into FP16 embeddings (`[260, 300, 4096]`) using Google's T5-XXL text encoder. This step also encodes the empty prompt `""` for unconditional Classifier-Free Guidance (CFG).
+
+```powershell
+py -3.11.2 scripts/data/precompute_t5_embeddings.py `
+  --latent-bundle data/archives/clean_latents_512.zip `
+  --output-cache data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt `
+  --t5-gpu-memory 8GiB `
+  --t5-cpu-memory 24GiB `
+  --batch-size 8
+```
+
+#### 1.5 Dataset Asset Contract Validation
+Verify alignment between `data/ink.zip`, `clean_latents_512.zip`, and `t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt` before starting training:
+
+```powershell
+py -3.11.2 scripts/training/train_local_latent_lora.py --validate-assets-only
+```
 
 ---
 

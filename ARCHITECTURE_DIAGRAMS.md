@@ -1,65 +1,65 @@
 # System Architecture & Workflow Diagrams: Efficient PixArt-Sigma LoRA Distillation
 
-This document visualizes the complete system architecture, model block composition, multi-stage distillation math flow, and runtime inference pathways for **Efficient PixArt-Sigma LoRA**.
+This document visualizes the complete system architecture, model block composition, multi-stage distillation math flow, evaluation gating, and runtime inference pathways for **Efficient PixArt-Sigma LoRA Adaptation & Fast Distillation** (20-Step Teacher $\to$ 4-Step Student $\to$ 2-Step Student).
 
 ---
 
-## 1. End-to-End Training & Distillation Pipeline Flow
+## 1. End-to-End Training, Distillation & Evaluation Pipeline Flow
 
 ```mermaid
 flowchart TD
-    subgraph S0["Stage 0: Data & Feature Preparation"]
-        D1["Raw Ink-Wash Scrapes / Kaggle Data<br/>(260 Images)"] --> D2["Florence-2 / JoyCaption<br/>Auto-Captioning"]
-        D2 --> D3["Deterministic Filtering<br/>(209 Plant Captions)"]
-        D3 --> D4["Precompute SDXL VAE Latents<br/>(4 x 64 x 64, FP16)"]
-        D3 --> D5["Precompute T5-XXL Embeddings<br/>(300 tokens, 4096-dim, FP16)"]
-        D4 --> D6[("data/archives/clean_latents_512.zip")]
-        D5 --> D7[("data/features/t5_embeddings_n260.pt")]
+    subgraph S0["Stage 0: Data Preparation & Precomputing Feature Caches"]
+        D1[("data/ink.zip<br/>260 Canonical Image/Caption Pairs")] --> D2["scripts/data/precompute_clean_latents.py<br/>SDXL VAE (512x512 LANCZOS Crop, scale=0.13025)"]
+        D1 --> D3["scripts/data/precompute_t5_embeddings.py<br/>T5-XXL FP16 (300 tokens, 4096-dim + Empty Prompt)"]
+        D2 --> D4[("data/archives/clean_latents_512.zip<br/>[260, 4, 64, 64] Latents + manifest.jsonl")]
+        D3 --> D5[("data/features/t5_embeddings_n260_len300_fp16_b9d3c2d1d404.pt")]
+        D4 & D5 --> D6{"Asset Contract Validation<br/>train_local_latent_lora.py --validate-assets-only"}
+        D6 -->|Fingerprint: b9d3c2d1d404| D7["Validated Asset Bundle"]
     end
 
-    subgraph S1["Stage 1: 20-Step Style Teacher Training"]
-        D6 & D7 --> T1["Base PixArt-Sigma XL-2 (Frozen)"]
-        T1 --> T2["Attach LoRA (Rank 16, Alpha 16)<br/>12 Official Target Modules"]
-        T2 --> T3["Train 10,000 steps (AdamW, LR=1e-5)<br/>Standard DDPM MSE Loss"]
+    subgraph S1["Stage 1: 20-Step Style Teacher Adaptation"]
+        D7 --> T1["Base PixArt-Sigma XL-2 (Frozen DiT)"]
+        T1 --> T2["Inject LoRA (Rank 16, Alpha 16)<br/>12 Target Modules (574 Tensors, 13.76M Params)"]
+        T2 --> T3["Train 10,000 Steps (Plant Subset n=209, LR=1e-5)<br/>Standard DDPM Denoising Loss"]
         T3 --> T4["outputs/style_teacher/...<br/>20-step Style Teacher LoRA"]
-        T4 --> T5{"Validate Provenance &<br/>574 FP32 Tensors (13.76M Params)"}
+        T4 --> T5["validate_style_teacher.py<br/>Provenance & Hash Verification"]
         T5 -->|PASS| T6[("teacher_manifest.json")]
     end
 
-    subgraph S2["Stage 2: Trajectory Caching"]
-        T6 --> C1["build_distill_prompt_cache.py<br/>627 Bank Prompts + 30 Eval Prompts"]
-        C1 --> C2[("distill_t5_plant627.pt")]
-        C2 & T6 --> C3["cache_teacher_trajectories.py<br/>20-step Denoising Rollout (2 Replicas)"]
-        C3 --> C4[("Trajectory Cache<br/>(1,254 trajectories x 21 states)")]
+    subgraph S2["Stage 2: Distillation Prompt Banking & Trajectory Caching"]
+        T6 --> C1["build_distill_prompt_cache.py<br/>627 Bank Prompts (original, subject, styled) + 30 Eval"]
+        C1 --> C2[("distill_t5_plant627_len300_fp16_v1.pt")]
+        C2 & T6 --> C3["cache_teacher_trajectories.py<br/>20-Step Denoising Rollout (2 Seeds / Prompt)"]
+        C3 --> C4[("Trajectory Cache<br/>1,254 Trajectories x 21 Discrete Latent States")]
     end
 
-    subgraph S3["Stage 3: 4-Step Joint LoRA Distillation"]
-        C4 & C2 & D6 & T6 --> S3_1["Initialize from Style Teacher LoRA"]
-        S3_1 --> S3_2["Train 2,000 steps (LR=5e-6)<br/>Phased Intervals: (0,5), (5,10), (10,15), (15,20)"]
-        S3_2 --> S3_3["Loss = 80% Pseudo-Huber Jump Loss<br/>+ 20% Clean Latent Anchor Loss"]
+    subgraph S3["Stage 3: 4-Step Student Distillation (20 -> 4 Steps)"]
+        C4 & C2 & D4 & T6 --> S3_1["Initialize Student from Style Teacher LoRA"]
+        S3_1 --> S3_2["train_phased_distill_lora.py (2,000 Steps, LR=5e-6)<br/>4 Uniform Jumps: (0->5), (5->10), (10->15), (15->20)"]
+        S3_2 --> S3_3["Joint Loss: 80% Pseudo-Huber Jump Loss (c=0.001)<br/>+ 20% Clean Latent Anchor Regularization"]
         S3_3 --> S3_4[("Student 4-Step Best Adapter")]
     end
 
     subgraph S4["Stage 4: 4-Step Quality Gate Verification"]
-        S3_4 --> Q1["generate_evaluation_set.py<br/>(30 Prompts x 4 Seeds = 120 Images)"]
+        S3_4 --> Q1["generate_evaluation_set.py<br/>30 Prompts x 4 Seeds = 120 Images"]
         Q1 --> Q2["evaluate_distilled.py<br/>CLIPScore & CMMD Computation"]
-        Q2 --> Q3{"Quality Gate Checks:<br/>1. CLIPScore >= 90% Teacher<br/>2. CMMD <= 1.5x Teacher<br/>3. Speedup >= 5.0x"}
-        Q3 -->|FAIL| Q4["Reject / Retrain"]
-        Q3 -->|PASS| Q5["Approved 4-Step Student"]
+        Q2 --> Q3{"4-Step Quality Gate:<br/>1. CLIPScore >= 90% Teacher<br/>2. CMMD <= 1.5x Teacher<br/>3. Speedup >= 5.0x"}
+        Q3 -->|FAIL| Q4["Reject Checkpoint / Retrain"]
+        Q3 -->|PASS| Q5["Approved 4-Step Student Checkpoint"]
     end
 
-    subgraph S5["Stage 5: 2-Step Joint LoRA Distillation"]
-        Q5 & C4 & C2 & D6 --> S5_1["Initialize from Approved 4-Step Student"]
-        S5_1 --> S5_2["Train 7,000 steps (LR=2e-6)<br/>Phased Intervals: (0,10), (10,20)"]
-        S5_2 --> S5_3["Loss = 80% Jump Loss (50% On-Policy Rollout)<br/>+ 20% Clean Latent Anchor Loss"]
+    subgraph S5["Stage 5: 2-Step Student Distillation (4 -> 2 Steps)"]
+        Q5 & C4 & C2 & D4 --> S5_1["Initialize Student from Approved 4-Step LoRA"]
+        S5_1 --> S5_2["train_phased_distill_lora.py (7,000 Steps, LR=2e-6)<br/>2 Long Jumps: (0->10), (10->20)"]
+        S5_2 --> S5_3["Loss: 80% Jump Loss (50% On-Policy Rollout Matching)<br/>+ 20% Clean Latent Anchor Regularization"]
         S5_3 --> S5_4[("Student 2-Step Best Adapter")]
     end
 
-    subgraph S6["Stage 6: Final 2-Step Quality Gate & Benchmark"]
-        S5_4 --> F1["generate_evaluation_set.py<br/>(120 Images @ 2 Steps, guidance=1.0)"]
+    subgraph S6["Stage 6: Final 2-Step Quality Gate & Deployment"]
+        S5_4 --> F1["generate_evaluation_set.py<br/>120 Images @ 2 Steps (CFG=1.0)"]
         F1 --> F2["evaluate_distilled.py &<br/>eval_30prompts_cmmd.py"]
-        F2 --> F3{"Final Gate:<br/>Speedup >= 11x<br/>CLIPScore >= 95%<br/>Exact 2 DiT Calls"}
-        F3 -->|PASS| F4["Production Ready Model<br/>(Latency: 0.244s, Speedup: 11.78x)"]
+        F2 --> F3{"Final Acceptance Gate:<br/>Exact 2 DiT Calls (No CFG Branch)<br/>CLIPScore >= 95% Retention<br/>Speedup >= 11x"}
+        F3 -->|PASS| F4["Production 2-Step Model<br/>0.244s Latency | 11.78x Speedup | 512x512 PNG + JSON"]
     end
 
     style S0 fill:#e8f4f8,stroke:#2b6cb0,stroke-width:2px;
@@ -90,31 +90,31 @@ flowchart TB
         
         subgraph SelfAttn["Self-Attention Sub-Block"]
             SA_Norm["LayerNorm"]
-            SA_Q["Linear to_q + LoRA_A/B (r=16)"]
-            SA_K["Linear to_k + LoRA_A/B (r=16)"]
-            SA_V["Linear to_v + LoRA_A/B (r=16)"]
+            SA_Q["Linear to_q + LoRA_A/B (r=16, a=16)"]
+            SA_K["Linear to_k + LoRA_A/B (r=16, a=16)"]
+            SA_V["Linear to_v + LoRA_A/B (r=16, a=16)"]
             SA_Score["Multi-Head Scaled Dot-Product"]
-            SA_Out["Linear to_out.0 + LoRA_A/B (r=16)"]
+            SA_Out["Linear to_out.0 + LoRA_A/B (r=16, a=16)"]
             
             SA_Norm --> SA_Q & SA_K & SA_V --> SA_Score --> SA_Out
         end
 
         subgraph CrossAttn["Cross-Attention Sub-Block"]
             CA_Norm["LayerNorm"]
-            CA_Q["Linear proj_in + LoRA_A/B (r=16)"]
-            CA_K["Linear proj + LoRA_A/B (r=16)"]
-            CA_V["Linear linear / linear_1 / linear_2 + LoRA_A/B (r=16)"]
+            CA_Q["Linear proj_in + LoRA_A/B (r=16, a=16)"]
+            CA_K["Linear proj + LoRA_A/B (r=16, a=16)"]
+            CA_V["Linear linear / linear_1 / linear_2 + LoRA_A/B (r=16, a=16)"]
             CA_Score["Cross Multi-Head Attention"]
-            CA_Out["Linear proj_out + LoRA_A/B (r=16)"]
+            CA_Out["Linear proj_out + LoRA_A/B (r=16, a=16)"]
             
             CA_Norm --> CA_Q & CA_K & CA_V --> CA_Score --> CA_Out
         end
 
         subgraph FFN["Feed-Forward Sub-Block"]
             FF_Norm["LayerNorm"]
-            FF_In["Linear ff.net.0.proj + LoRA_A/B (r=16)"]
+            FF_In["Linear ff.net.0.proj + LoRA_A/B (r=16, a=16)"]
             FF_Act["GELU Activation"]
-            FF_Out["Linear ff.net.2 + LoRA_A/B (r=16)"]
+            FF_Out["Linear ff.net.2 + LoRA_A/B (r=16, a=16)"]
             
             FF_Norm --> FF_In --> FF_Act --> FF_Out
         end
@@ -153,12 +153,12 @@ flowchart TB
 ```mermaid
 flowchart TD
     subgraph LossFormulation["Loss Computation in Student Distillation Step"]
-        Dice{"Sample Loss Branch<br/>Random Coin Flip"}
+        Dice{"Sample Loss Branch<br/>Random Bernoulli Trial"}
         
         Dice -->|Probability = 0.20| AnchorBranch["Anchor Loss Branch (Clean Latent Regularization)"]
         Dice -->|Probability = 0.80| TrajectoryBranch["Phased Trajectory Jump Branch"]
         
-        subgraph AnchorLoss["Clean Latent Anchor Loss"]
+        subgraph AnchorLoss["Clean Latent Anchor Loss (Prevents Overfitting / Mode Collapse)"]
             Z0["Clean Ground-Truth Latent x_0<br/>from clean_latents_512.zip"]
             Noise["Sample Random Gaussian Noise ε ~ N(0, I)"]
             T_rand["Sample Random Timestep t in [0, 999]"]
@@ -171,11 +171,11 @@ flowchart TD
 
         subgraph TrajLoss["Phased Deterministic Jump Loss"]
             Cache["Trajectory Cache Shard<br/>Sequence of States: x_{t_0}, x_{t_1}, ..., x_{t_20}"]
-            Phase["Select Stage Phase Jump:<br/>4-Step: (0,5), (5,10), (10,15), (15,20)<br/>2-Step: (0,10), (10,20)"]
+            Phase["Select Stage Phase Jump:<br/>4-Step: (0->5), (5->10), (10->15), (15->20)<br/>2-Step: (0->10), (10->20)"]
             OnPolicy{"On-Policy Rollout?<br/>(2-Step Phase 2, p=0.5)"}
             
-            OnPolicy -->|Yes| Rollout["Compute Jump 1 using Current Student:<br/>x_{t_10} = Jump(x_{t_0}, Student(x_{t_0}, t_0))"]
-            OnPolicy -->|No| CacheState["Load Exact Start State x_{t_start}<br/>from Teacher Cache"]
+            OnPolicy -->|Yes| Rollout["Compute Jump 1 using Current Student Checkpoint:<br/>x_{t_10} = Deterministic_Jump(x_{t_0}, Student(x_{t_0}, t_0))"]
+            OnPolicy -->|No| CacheState["Load Exact Teacher Start State x_{t_start}<br/>from Sharded Trajectory Cache"]
             
             StartLatent["Starting Latent x_{t_start}"]
             TargetLatent["Target Teacher Latent x_{t_target}"]
@@ -183,7 +183,7 @@ flowchart TD
             Rollout --> StartLatent
             CacheState --> StartLatent
             
-            StudentJump["Student Forward:<br/>ε_θ = Student(x_{t_start}, t_start, Prompt)<br/>x_hat_{t_target} = Deterministic_Jump(x_{t_start}, ε_θ, t_start, t_target)"]
+            StudentJump["Student Forward & Jump:<br/>ε_θ = Student(x_{t_start}, t_start, Prompt)<br/>x_hat_{t_target} = Deterministic_Jump(x_{t_start}, ε_θ, t_start, t_target)"]
             
             Loss_traj["Pseudo-Huber Loss:<br/>L_traj = sqrt( || x_hat_{t_target} - x_{t_target} ||² + c² ) - c<br/>(c = 0.001)"]
             
@@ -205,7 +205,7 @@ flowchart TD
 
 ---
 
-## 4. Timestep Mapping & Sampling Schedules
+## 4. Timestep Mapping & Multi-Step Sampling Schedules
 
 ```mermaid
 gantt
@@ -301,4 +301,38 @@ flowchart TD
 
     style Fail fill:#fee2e2,stroke:#ef4444,stroke-width:2px;
     style Pass fill:#dcfce7,stroke:#22c55e,stroke-width:2px;
+```
+
+---
+
+## 7. Production Fast Inference & Deployment Pipeline
+
+```mermaid
+flowchart LR
+    subgraph Input["User Prompt Input"]
+        P["Text Prompt String<br/>e.g. 'Misty mountain peaks, ancient pine...'"]
+    end
+
+    subgraph TextEnc["Conditioning Pipeline"]
+        P --> Enc["T5-XXL Tokenizer & Text Encoder<br/>(Sequence Length: 300, FP16)"]
+        Enc --> Embed["Prompt Embeddings [1, 300, 4096]<br/>+ Attention Mask [1, 300]"]
+    end
+
+    subgraph DiTDenoise["Fast 2-Step Denoising (CFG=1.0)"]
+        Z_init["Initial Latent x_T ~ N(0, I)<br/>Shape: [1, 4, 64, 64]"]
+        Embed & Z_init --> Step1["Step 1 (t=999 -> 500):<br/>DiT Forward Call 1 + Jump"]
+        Step1 --> Step2["Step 2 (t=500 -> 0):<br/>DiT Forward Call 2 + Jump"]
+        Step2 --> Z_0["Denoised Latent x_0<br/>Shape: [1, 4, 64, 64]"]
+    end
+
+    subgraph VAE_Out["Image Decoding & Metadata Sidecar"]
+        Z_0 --> VAE_Dec["SDXL VAE Decoder<br/>(Decode z / 0.13025)"]
+        VAE_Dec --> Img["512x512 RGB Image (.png)"]
+        Step2 --> Meta["Metadata Sidecar (.json)<br/>• transformer_forward_calls: 2<br/>• guidance_scale: 1.0<br/>• latency_seconds: ~0.244s"]
+    end
+
+    style Input fill:#f1f5f9,stroke:#64748b,stroke-width:1px;
+    style TextEnc fill:#ede9fe,stroke:#7c3aed,stroke-width:1px;
+    style DiTDenoise fill:#ecfdf5,stroke:#059669,stroke-width:2px;
+    style VAE_Out fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
 ```
