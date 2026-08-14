@@ -74,7 +74,7 @@ def main():
     md_content.append("- **Prompt**: *\"A solitary pine tree standing on a misty mountain cliff, traditional Chinese ink wash painting style, shuimo hua\"*\n")
     md_content.append("- **Sampling**: `guidance_scale = 1.5`, `num_inference_steps = 20`\n")
     md_content.append("- **Seeds**: `42`, `100`, `2026`\n")
-    md_content.append("- **Local Folder**: [outputs/manual_comparison/](file:///C:/dev/efficient-pixart-sigma-lora/outputs/manual_comparison)\n\n")
+    md_content.append("- **Local Folder**: `outputs/manual_comparison/`\n\n")
     md_content.append("---\n\n")
     md_content.append("## 🔍 Side-by-Side Visual Comparison Table\n\n")
 
@@ -93,7 +93,7 @@ def main():
     md_content.append("---\n\n")
     md_content.append("## 💡 Observations Across Step Checkpoints\n\n")
     md_content.append("1. **Baseline (Step 0)**: Lacks traditional Chinese ink wash bleeding, generating standard digital art texture.\n")
-    md_content.append("2. **Step 4,000**: Exhibits authentic Sumi-e brushstroke dynamics, soft ink diffusion (墨韻), and clean negative space (留白).\n")
+    md_content.append("2. **Step 4,000**: Exhibits authentic Sumi-e brushstroke dynamics, soft ink diffusion (墨韻), and clean negative space.\n")
     md_content.append("3. **Step 7,000**: Achieves strong contrast and high prompt alignment (CLIPScore `0.3655`), retaining clear pine needle structures.\n")
     md_content.append("4. **Step 10,000**: Shows slight style oversaturation with heavier black ink lines, demonstrating late-stage training behavior.\n")
 

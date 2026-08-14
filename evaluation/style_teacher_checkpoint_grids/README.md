@@ -7,12 +7,12 @@ sampling noise.
 
 Run:
 
-\`\`\`powershell
-& 'C:\Users\miaoj\AppData\Local\Programs\Python\Python311\python.exe' \`
-  scripts\evaluation\generate_style_teacher_checkpoint_grids.py \`
-  --model-root outputs\style_teacher\all_n260_steps10000 \`
+```powershell
+python `
+  scripts\evaluation\generate_style_teacher_checkpoint_grids.py `
+  --model-root outputs\style_teacher\all_n260_steps10000 `
   --output-dir outputs\evaluation\style_teacher_checkpoint_grids
-\`\`\`
+```
 
 Defaults:
 

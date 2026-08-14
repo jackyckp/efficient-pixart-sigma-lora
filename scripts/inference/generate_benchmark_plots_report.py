@@ -1,11 +1,18 @@
+import argparse
 import csv
 import matplotlib.pyplot as plt
 from pathlib import Path
 
 def main():
-    root_dir = Path.cwd()
+    parser = argparse.ArgumentParser(description="Generate benchmark plots report.")
+    parser.add_argument("--output-dir", type=Path, default=None, help="Directory to save generated plots.")
+    parser.add_argument("--artifact-dir", type=Path, default=None, help="Optional artifact directory.")
+    args = parser.parse_args()
+
+    root_dir = Path(__file__).resolve().parents[2]
     output_root = root_dir / "outputs" / "benchmark_30prompts"
-    artifact_dir = Path(r"C:\Users\hklov\.gemini\antigravity-cli\brain\b70f3ed3-d14e-4144-af3b-784222775bc9")
+    save_dir = args.output_dir or args.artifact_dir or (output_root / "plots")
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     detail_csv = output_root / "benchmark_30prompts_detail.csv"
     summary_csv = output_root / "benchmark_summary.csv"
@@ -47,7 +54,7 @@ def main():
     plt.title("30-Prompt Benchmark: CLIPScore & CMMD Metric Comparison", fontsize=13, fontweight="bold")
     plt.tight_layout()
 
-    chart1_path = artifact_dir / "cmmd_clip_benchmark.png"
+    chart1_path = save_dir / "cmmd_clip_benchmark.png"
     plt.savefig(chart1_path, dpi=150)
     plt.close()
     print("Saved CMMD chart to:", chart1_path)
@@ -87,7 +94,7 @@ def main():
     ax.grid(True, linestyle="--", alpha=0.5)
     plt.tight_layout()
 
-    chart2_path = artifact_dir / "category_clip_breakdown.png"
+    chart2_path = save_dir / "category_clip_breakdown.png"
     plt.savefig(chart2_path, dpi=150)
     plt.close()
     print("Saved Category chart to:", chart2_path)

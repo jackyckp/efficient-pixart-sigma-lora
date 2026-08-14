@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-"""Move all report markdown files and images from .gemini artifact directory to outputs/reports/ and convert all image paths to relative paths."""
-
+import argparse
 import os
 import re
 import shutil
@@ -8,9 +6,14 @@ from pathlib import Path
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Relocate report markdown files and convert image paths to relative paths.")
+    parser.add_argument("--source-dir", type=Path, default=None, help="Source directory containing artifacts.")
+    parser.add_argument("--output-dir", type=Path, default=None, help="Destination directory for reports.")
+    args = parser.parse_args()
+
     root_dir = Path(__file__).resolve().parents[2]
-    artifact_dir = Path(r"C:\Users\hklov\.gemini\antigravity-cli\brain\b70f3ed3-d14e-4144-af3b-784222775bc9")
-    reports_dir = root_dir / "outputs" / "reports"
+    artifact_dir = args.source_dir if args.source_dir else (root_dir / "outputs" / "reports")
+    reports_dir = args.output_dir if args.output_dir else (root_dir / "outputs" / "reports")
     images_dir = reports_dir / "images"
 
     reports_dir.mkdir(parents=True, exist_ok=True)

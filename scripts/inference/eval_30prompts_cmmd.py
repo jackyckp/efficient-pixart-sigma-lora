@@ -4,10 +4,10 @@
 Uses exact trigger word: 'traditional Chinese ink wash painting style, shuimo hua'
 
 Evaluates best dataset checkpoints across 4 traditional ink-wash prompt categories:
-1. Landscapes (山水)
-2. Flora & Fauna (花鳥)
-3. Minimalist Composition (意境/留白)
-4. Detailed Figures & Architecture (人物/亭台)
+1. Landscapes 
+2. Flora & Fauna 
+3. Minimalist Composition 
+4. Detailed Figures & Architecture 
 
 Calculates both CLIPScore (Text-Image Alignment) and CMMD (CLIP Maximum Mean Discrepancy against ground-truth ink wash images).
 """
@@ -37,7 +37,7 @@ def repository_root() -> Path:
 
 
 VALIDATION_PROMPTS = [
-    # Category 1: Landscapes (山水)
+    # Category 1: Landscapes 
     {"id": 1, "category": "Landscapes", "prompt": f"Misty mountain peaks enveloped in soft clouds, ancient pine tree on a cliff, {TRIGGER_WORD}"},
     {"id": 2, "category": "Landscapes", "prompt": f"Winding river flowing through steep mountain gorges, distant waterfall, {TRIGGER_WORD}"},
     {"id": 3, "category": "Landscapes", "prompt": f"Cascading waterfall plunging into a misty ravine, jagged rock formations, {TRIGGER_WORD}"},
@@ -47,7 +47,7 @@ VALIDATION_PROMPTS = [
     {"id": 7, "category": "Landscapes", "prompt": f"Quiet lake reflecting towering mountain shadows, serene water surface, {TRIGGER_WORD}"},
     {"id": 8, "category": "Landscapes", "prompt": f"Storm clouds gathering above rugged cliffside pines, dynamic black ink splash technique, {TRIGGER_WORD}"},
 
-    # Category 2: Flora & Fauna (花鳥)
+    # Category 2: Flora & Fauna 
     {"id": 9, "category": "Flora_Fauna", "prompt": f"Ink wash bamboo in the wind, wet brush technique, delicate leaves, subtle grey tones, {TRIGGER_WORD}"},
     {"id": 10, "category": "Flora_Fauna", "prompt": f"A pair of flying cranes soaring above misty clouds, elegant brushstrokes, {TRIGGER_WORD}"},
     {"id": 11, "category": "Flora_Fauna", "prompt": f"Blooming plum blossoms on a gnarled branch, delicate ink wash gradients, soft grey background, {TRIGGER_WORD}"},
@@ -57,7 +57,7 @@ VALIDATION_PROMPTS = [
     {"id": 15, "category": "Flora_Fauna", "prompt": f"Wild orchids clinging to a mossy cliff, graceful curved leaves, minimalist ink wash style, {TRIGGER_WORD}"},
     {"id": 16, "category": "Flora_Fauna", "prompt": f"Koi fish swimming in clear water, soft ink wash ripples, transparent ink gradients, {TRIGGER_WORD}"},
 
-    # Category 3: Minimalist Composition (意境/留白)
+    # Category 3: Minimalist Composition 
     {"id": 17, "category": "Minimalist", "prompt": f"A single small boat on a vast calm lake, minimalist composition, wide white space, {TRIGGER_WORD}"},
     {"id": 18, "category": "Minimalist", "prompt": f"Solitary fisherman sitting on a riverbank with a fishing rod, vast empty background, {TRIGGER_WORD}"},
     {"id": 19, "category": "Minimalist", "prompt": f"Single bamboo stalk in the corner of a blank paper canvas, elegant white space composition, {TRIGGER_WORD}"},
@@ -66,7 +66,7 @@ VALIDATION_PROMPTS = [
     {"id": 22, "category": "Minimalist", "prompt": f"A single falling leaf landing on still water, delicate ink ripple lines, minimalist composition, {TRIGGER_WORD}"},
     {"id": 23, "category": "Minimalist", "prompt": f"Distant flight of birds vanishing into empty mist, minimalist composition, wide negative space, {TRIGGER_WORD}"},
 
-    # Category 4: Detailed Figures & Architecture (人物/亭台)
+    # Category 4: Detailed Figures & Architecture 
     {"id": 24, "category": "Architecture", "prompt": f"Ancient wooden pavilion surrounded by swirling mountain fog, {TRIGGER_WORD}"},
     {"id": 25, "category": "Architecture", "prompt": f"Ancient scholar walking along a winding stone path, traditional robes, {TRIGGER_WORD}"},
     {"id": 26, "category": "Architecture", "prompt": f"Secluded stone temple tucked in a deep pine forest, mist rising, detailed architecture, {TRIGGER_WORD}"},

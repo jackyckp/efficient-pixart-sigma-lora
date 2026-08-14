@@ -44,10 +44,19 @@ See [data/README.md](data/README.md) for asset and validation contracts.
 
 ## Setup and entry points
 
-Use Python 3.11.2. Install a CUDA-enabled PyTorch build appropriate to your machine, then install project dependencies:
+### Option 1: Conda Environment (Recommended)
 
 ```powershell
-py -3.11 -m pip install -r requirements.txt
+conda env create -f environment.yml
+conda activate pixart311
+```
+
+### Option 2: Pip Installation
+
+Use Python 3.11. Install a CUDA-enabled PyTorch build appropriate to your machine, then install project dependencies:
+
+```powershell
+pip install -r requirements.txt
 ```
 
 Validate local data assets:

@@ -36,7 +36,7 @@ This repository contains the fine-tuned **LoRA (Low-Rank Adaptation)** adapter f
 
 ## 🏷️ Trigger Word
 
-To activate the traditional ink wash style and proper negative space (留白) control, always include the full trigger phrase in your prompt:
+To activate the traditional ink wash style and proper negative space control, always include the full trigger phrase in your prompt:
 
 ```text
 traditional Chinese ink wash painting style, shuimo hua
@@ -99,7 +99,7 @@ python scripts/inference/generate_with_prompt.py \
 
 | Parameter | Recommended Value | Reason / Effect |
 | :--- | :--- | :--- |
-| **`guidance_scale`** | **`1.5`** (Range: `1.2` – `3.0`) | `1.5` delivers smooth ink wash gradients, soft paper texture, and clean negative space (留白) without contrast blowouts. |
+| **`guidance_scale`** | **`1.5`** (Range: `1.2` – `3.0`) | `1.5` delivers smooth ink wash gradients, soft paper texture, and clean negative space without contrast blowouts. |
 | **`num_inference_steps`** | **`20`** (Range: `20` – `30`) | Fast generation (~0.7s per image on modern GPU). |
 | **Resolution** | **`512 x 512`** | Trained at native 512x512 latent dimensions. |
 
@@ -107,11 +107,11 @@ python scripts/inference/generate_with_prompt.py \
 
 ## 🎨 Recommended Prompt Categories & Examples
 
-1. **🏔️ Landscapes (山水)**:
+1. **🏔️ Landscapes**:
    > *"Misty mountain peaks enveloped in soft clouds, ancient pine tree on a cliff, traditional Chinese ink wash painting style, shuimo hua"*
-2. **🪶 Flora & Fauna (花鳥)**:
+2. **🪶 Flora & Fauna**:
    > *"Ink wash bamboo in the wind, wet brush technique, delicate leaves, subtle grey tones, traditional Chinese ink wash painting style, shuimo hua"*
-3. **⛵ Minimalist Composition (留白)**:
+3. **⛵ Minimalist Composition**:
    > *"A single small boat on a vast calm lake, minimalist composition, wide white space, traditional Chinese ink wash painting style, shuimo hua"*
-4. **🏯 Architecture & Figures (亭台)**:
+4. **🏯 Architecture & Figures**:
    > *"Ancient wooden pavilion surrounded by swirling mountain fog, traditional Chinese ink wash painting style, shuimo hua"*

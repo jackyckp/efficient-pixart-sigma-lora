@@ -1,0 +1,33 @@
+name: pixart311
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+      - torch>=2.5.1
+      - torchvision>=0.20.1
+      - torchaudio>=2.5.1
+      - diffusers==0.39.0
+      - transformers==5.13.0
+      - accelerate==1.14.0
+      - peft==0.19.1
+      - safetensors>=0.5.3
+      - sentencepiece>=0.2.0
+      - huggingface_hub>=0.34.0
+      - einops>=0.8.0
+      - Pillow>=10.0
+      - matplotlib>=3.8
+      - seaborn>=0.13.0
+      - requests>=2.31.0
+      - beautifulsoup4>=4.12.0
+      - deep-translator>=1.11.0
+      - kagglehub>=1.0.0
+      - pandas>=2.0.0
+      - tqdm>=4.66
+      - psutil>=5.9
+      - pytest>=8.0

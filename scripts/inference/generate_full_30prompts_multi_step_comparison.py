@@ -10,43 +10,43 @@ from pathlib import Path
 TRIGGER_WORD = "traditional Chinese ink wash painting style, shuimo hua"
 
 VALIDATION_PROMPTS = [
-    # Category 1: Landscapes (山水)
-    {"id": 1, "category": "Landscapes (山水)", "prompt": f"Misty mountain peaks enveloped in soft clouds, ancient pine tree on a cliff, {TRIGGER_WORD}"},
-    {"id": 2, "category": "Landscapes (山水)", "prompt": f"Winding river flowing through steep mountain gorges, distant waterfall, {TRIGGER_WORD}"},
-    {"id": 3, "category": "Landscapes (山水)", "prompt": f"Cascading waterfall plunging into a misty ravine, jagged rock formations, {TRIGGER_WORD}"},
-    {"id": 4, "category": "Landscapes (山水)", "prompt": f"Snow-covered mountain range in winter, bare trees, frozen lake, {TRIGGER_WORD}"},
-    {"id": 5, "category": "Landscapes (山水)", "prompt": f"Autumn mountains with sparse foliage, winding stone path leading to a ridge, {TRIGGER_WORD}"},
-    {"id": 6, "category": "Landscapes (山水)", "prompt": f"Sunrise over sea of clouds and mountain spires, high contrast black ink brushwork, white space, {TRIGGER_WORD}"},
-    {"id": 7, "category": "Landscapes (山水)", "prompt": f"Quiet lake reflecting towering mountain shadows, serene water surface, {TRIGGER_WORD}"},
-    {"id": 8, "category": "Landscapes (山水)", "prompt": f"Storm clouds gathering above rugged cliffside pines, dynamic black ink splash technique, {TRIGGER_WORD}"},
+    # Category 1: Landscapes 
+    {"id": 1, "category": "Landscapes", "prompt": f"Misty mountain peaks enveloped in soft clouds, ancient pine tree on a cliff, {TRIGGER_WORD}"},
+    {"id": 2, "category": "Landscapes", "prompt": f"Winding river flowing through steep mountain gorges, distant waterfall, {TRIGGER_WORD}"},
+    {"id": 3, "category": "Landscapes", "prompt": f"Cascading waterfall plunging into a misty ravine, jagged rock formations, {TRIGGER_WORD}"},
+    {"id": 4, "category": "Landscapes", "prompt": f"Snow-covered mountain range in winter, bare trees, frozen lake, {TRIGGER_WORD}"},
+    {"id": 5, "category": "Landscapes", "prompt": f"Autumn mountains with sparse foliage, winding stone path leading to a ridge, {TRIGGER_WORD}"},
+    {"id": 6, "category": "Landscapes", "prompt": f"Sunrise over sea of clouds and mountain spires, high contrast black ink brushwork, white space, {TRIGGER_WORD}"},
+    {"id": 7, "category": "Landscapes", "prompt": f"Quiet lake reflecting towering mountain shadows, serene water surface, {TRIGGER_WORD}"},
+    {"id": 8, "category": "Landscapes", "prompt": f"Storm clouds gathering above rugged cliffside pines, dynamic black ink splash technique, {TRIGGER_WORD}"},
 
-    # Category 2: Flora & Fauna (花鳥)
-    {"id": 9, "category": "Flora & Fauna (花鳥)", "prompt": f"Ink wash bamboo in the wind, wet brush technique, delicate leaves, subtle grey tones, {TRIGGER_WORD}"},
-    {"id": 10, "category": "Flora & Fauna (花鳥)", "prompt": f"A pair of flying cranes soaring above misty clouds, elegant brushstrokes, {TRIGGER_WORD}"},
-    {"id": 11, "category": "Flora & Fauna (花鳥)", "prompt": f"Blooming plum blossoms on a gnarled branch, delicate ink wash gradients, soft grey background, {TRIGGER_WORD}"},
-    {"id": 12, "category": "Flora & Fauna (花鳥)", "prompt": f"Solitary eagle perched on an ancient pine branch, sharp gaze, bold black ink brushwork, {TRIGGER_WORD}"},
-    {"id": 13, "category": "Flora & Fauna (花鳥)", "prompt": f"Lotus flowers blooming in a quiet pond, large wet ink leaves, dragonfly hovering, {TRIGGER_WORD}"},
-    {"id": 14, "category": "Flora & Fauna (花鳥)", "prompt": f"A wild horse galloping across an open plain, dynamic ink wash style, fluid brush lines, {TRIGGER_WORD}"},
-    {"id": 15, "category": "Flora & Fauna (花鳥)", "prompt": f"Wild orchids clinging to a mossy cliff, graceful curved leaves, minimalist ink wash style, {TRIGGER_WORD}"},
-    {"id": 16, "category": "Flora & Fauna (花鳥)", "prompt": f"Koi fish swimming in clear water, soft ink wash ripples, transparent ink gradients, {TRIGGER_WORD}"},
+    # Category 2: Flora & Fauna 
+    {"id": 9, "category": "Flora & Fauna", "prompt": f"Ink wash bamboo in the wind, wet brush technique, delicate leaves, subtle grey tones, {TRIGGER_WORD}"},
+    {"id": 10, "category": "Flora & Fauna", "prompt": f"A pair of flying cranes soaring above misty clouds, elegant brushstrokes, {TRIGGER_WORD}"},
+    {"id": 11, "category": "Flora & Fauna", "prompt": f"Blooming plum blossoms on a gnarled branch, delicate ink wash gradients, soft grey background, {TRIGGER_WORD}"},
+    {"id": 12, "category": "Flora & Fauna", "prompt": f"Solitary eagle perched on an ancient pine branch, sharp gaze, bold black ink brushwork, {TRIGGER_WORD}"},
+    {"id": 13, "category": "Flora & Fauna", "prompt": f"Lotus flowers blooming in a quiet pond, large wet ink leaves, dragonfly hovering, {TRIGGER_WORD}"},
+    {"id": 14, "category": "Flora & Fauna", "prompt": f"A wild horse galloping across an open plain, dynamic ink wash style, fluid brush lines, {TRIGGER_WORD}"},
+    {"id": 15, "category": "Flora & Fauna", "prompt": f"Wild orchids clinging to a mossy cliff, graceful curved leaves, minimalist ink wash style, {TRIGGER_WORD}"},
+    {"id": 16, "category": "Flora & Fauna", "prompt": f"Koi fish swimming in clear water, soft ink wash ripples, transparent ink gradients, {TRIGGER_WORD}"},
 
-    # Category 3: Minimalist Composition (意境/留白)
-    {"id": 17, "category": "Minimalist Composition (意境/留白)", "prompt": f"A single small boat on a vast calm lake, minimalist composition, wide white space, {TRIGGER_WORD}"},
-    {"id": 18, "category": "Minimalist Composition (意境/留白)", "prompt": f"Solitary fisherman sitting on a riverbank with a fishing rod, vast empty background, {TRIGGER_WORD}"},
-    {"id": 19, "category": "Minimalist Composition (意境/留白)", "prompt": f"Single bamboo stalk in the corner of a blank paper canvas, elegant white space composition, {TRIGGER_WORD}"},
-    {"id": 20, "category": "Minimalist Composition (意境/留白)", "prompt": f"A lone pine tree silhouette against a faint crescent moon, subtle grey wash, high negative space, {TRIGGER_WORD}"},
-    {"id": 21, "category": "Minimalist Composition (意境/留白)", "prompt": f"Faint outline of a distant mountain peak in heavy fog, minimalist ink wash composition, wide white space, {TRIGGER_WORD}"},
-    {"id": 22, "category": "Minimalist Composition (意境/留白)", "prompt": f"A single falling leaf landing on still water, delicate ink ripple lines, minimalist composition, {TRIGGER_WORD}"},
-    {"id": 23, "category": "Minimalist Composition (意境/留白)", "prompt": f"Distant flight of birds vanishing into empty mist, minimalist composition, wide negative space, {TRIGGER_WORD}"},
+    # Category 3: Minimalist Composition 
+    {"id": 17, "category": "Minimalist Composition", "prompt": f"A single small boat on a vast calm lake, minimalist composition, wide white space, {TRIGGER_WORD}"},
+    {"id": 18, "category": "Minimalist Composition", "prompt": f"Solitary fisherman sitting on a riverbank with a fishing rod, vast empty background, {TRIGGER_WORD}"},
+    {"id": 19, "category": "Minimalist Composition", "prompt": f"Single bamboo stalk in the corner of a blank paper canvas, elegant white space composition, {TRIGGER_WORD}"},
+    {"id": 20, "category": "Minimalist Composition", "prompt": f"A lone pine tree silhouette against a faint crescent moon, subtle grey wash, high negative space, {TRIGGER_WORD}"},
+    {"id": 21, "category": "Minimalist Composition", "prompt": f"Faint outline of a distant mountain peak in heavy fog, minimalist ink wash composition, wide white space, {TRIGGER_WORD}"},
+    {"id": 22, "category": "Minimalist Composition", "prompt": f"A single falling leaf landing on still water, delicate ink ripple lines, minimalist composition, {TRIGGER_WORD}"},
+    {"id": 23, "category": "Minimalist Composition", "prompt": f"Distant flight of birds vanishing into empty mist, minimalist composition, wide negative space, {TRIGGER_WORD}"},
 
-    # Category 4: Detailed Figures & Architecture (人物/亭台)
-    {"id": 24, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Ancient wooden pavilion surrounded by swirling mountain fog, {TRIGGER_WORD}"},
-    {"id": 25, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Ancient scholar walking along a winding stone path, traditional robes, {TRIGGER_WORD}"},
-    {"id": 26, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Secluded stone temple tucked in a deep pine forest, mist rising, detailed architecture, {TRIGGER_WORD}"},
-    {"id": 27, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Traditional thatched cottage near a bamboo grove, flowing stream, {TRIGGER_WORD}"},
-    {"id": 28, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Ancient stone bridge spanning a misty river, small pavilion on a cliff, {TRIGGER_WORD}"},
-    {"id": 29, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Old scholar sitting inside a pavilion reading a book, mountain view, detailed ink wash technique, {TRIGGER_WORD}"},
-    {"id": 30, "category": "Architecture & Figures (人物/亭台)", "prompt": f"Winding mountain staircase leading to a cloud-wrapped pagoda, {TRIGGER_WORD}"},
+    # Category 4: Detailed Figures & Architecture 
+    {"id": 24, "category": "Architecture & Figures", "prompt": f"Ancient wooden pavilion surrounded by swirling mountain fog, {TRIGGER_WORD}"},
+    {"id": 25, "category": "Architecture & Figures", "prompt": f"Ancient scholar walking along a winding stone path, traditional robes, {TRIGGER_WORD}"},
+    {"id": 26, "category": "Architecture & Figures", "prompt": f"Secluded stone temple tucked in a deep pine forest, mist rising, detailed architecture, {TRIGGER_WORD}"},
+    {"id": 27, "category": "Architecture & Figures", "prompt": f"Traditional thatched cottage near a bamboo grove, flowing stream, {TRIGGER_WORD}"},
+    {"id": 28, "category": "Architecture & Figures", "prompt": f"Ancient stone bridge spanning a misty river, small pavilion on a cliff, {TRIGGER_WORD}"},
+    {"id": 29, "category": "Architecture & Figures", "prompt": f"Old scholar sitting inside a pavilion reading a book, mountain view, detailed ink wash technique, {TRIGGER_WORD}"},
+    {"id": 30, "category": "Architecture & Figures", "prompt": f"Winding mountain staircase leading to a cloud-wrapped pagoda, {TRIGGER_WORD}"},
 ]
 
 
@@ -115,9 +115,8 @@ def main():
     md_content.append("2. **Step 4,000 Model**: Rank 4 candidate (`plant209` Step 4,000 / Optimal Ink Bleed & Diffusion)\n")
     md_content.append("3. **Step 7,000 Model**: Rank 1 candidate (`plant209` Step 7,000 / Highest Joint Selection Score `+0.7970`)\n")
     md_content.append("4. **Step 10,000 Model**: Rank 6 candidate (`plant209` Step 10,000 / High Step Saturation)\n\n")
-    md_content.append("- **Full Trigger Word**: `traditional Chinese ink wash painting style, shuimo hua`\n")
     md_content.append("- **Sampling**: `guidance_scale = 1.5`, `seed = 42`, `num_inference_steps = 20`\n")
-    md_content.append("- **Local Comparison Folder**: [outputs/comparison_30prompts/](file:///C:/dev/efficient-pixart-sigma-lora/outputs/comparison_30prompts)\n\n")
+    md_content.append("- **Local Comparison Folder**: `outputs/comparison_30prompts/`\n\n")
 
     current_cat = ""
     for item in VALIDATION_PROMPTS:

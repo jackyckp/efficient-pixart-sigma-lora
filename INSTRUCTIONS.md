@@ -6,17 +6,15 @@ This guide provides complete, step-by-step instructions to train, distill, evalu
 
 ## 0. Prerequisites & Environment Setup
 
-### 0.1 Environment Activation
-Always activate the `pixart311` conda environment before running any script:
+### 0.1 Environment Creation & Activation
+Create the conda environment using the provided [`environment.yml`](environment.yml):
 
 ```powershell
+conda env create -f environment.yml
 conda activate pixart311
 ```
 
-Or invoke the Python binary directly:
-`C:\Users\hklov\anaconda3\envs\pixart311\python.exe`
-
-### 0.2 Dependencies Installation
+Alternatively, if updating an existing environment with `pip`:
 ```powershell
 conda activate pixart311
 pip install -r requirements.txt
