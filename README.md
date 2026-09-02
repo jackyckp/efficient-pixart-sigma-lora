@@ -2,7 +2,20 @@
 
 This project adapts PixArt-Sigma 512 to Chinese ink-wash plant imagery, then distils a 20-step style teacher into 4-step and 2-step joint LoRA students. The GitHub repository contains code, experiment contracts, evaluation summaries, and a deliberately small curated visual set; raw data and model artifacts remain local or in shared storage.
 
-## Primary result: Teacher B 6k -> 4-step / 2-step
+## Stage 1 result: official base -> 20-step style teacher
+
+The first stage was evaluated against the unmodified official PixArt-Sigma model rather than only comparing LoRA checkpoints with each other. Both models used the same 30 held-out prompts, seed `42`, 512 x 512 resolution, 20 denoising steps, guidance scale 1.5, and `openai/clip-vit-base-patch32` scoring pipeline.
+
+| Model | Trainable adaptation | CLIPScore (higher is better) | Change from base | CMMD to ink-wash reference (lower is better) |
+| --- | --- | ---: | ---: | ---: |
+| Official PixArt-Sigma base | None | 0.3490 | Reference | 0.001900 |
+| Style Teacher: plant209, step 4,000 | Rank-16 LoRA | **0.3602** | **+0.0112 (+3.21%)** | **0.001229** |
+
+The LoRA teacher therefore improved prompt-image alignment while reducing the distribution distance to the ink-wash reference set by approximately 35.3%. CLIPScore alone does not measure style fidelity, so the selection used CLIPScore, CMMD, and visual review together.
+
+Exact unrounded values, the four-category CLIP breakdown, and the evaluation contract are recorded in [evaluation/style_teacher_vs_official_base_30prompt.json](evaluation/style_teacher_vs_official_base_30prompt.json). A separate same-prompt visual example is available in [evaluation/examples/style_teacher_vs_official_ginkgo](evaluation/examples/style_teacher_vs_official_ginkgo).
+
+## Stage 2 result: Teacher B 6k -> 4-step / 2-step
 
 The primary experiment extends Teacher B's 4-step student to 6k updates and trains a fresh 7k 2-step student from its selected four-step adapter. All results use held-out prompts, fixed seeds, 512 x 512 output, and guidance scale 1.0 for students.
 
@@ -13,6 +26,8 @@ The primary experiment extends Teacher B's 4-step student to 6k updates and trai
 | Joint LoRA student | 2 | 7,000 | 0.3535 | 96.84% | 0.001394 | 0.244 s | 11.78x | PASS |
 
 The complete history is in [evaluation/all_4step_2step_training_evaluation_results.csv](evaluation/all_4step_2step_training_evaluation_results.csv) and [evaluation/distillation_extended_results_v2.json](evaluation/distillation_extended_results_v2.json).
+
+The Stage 1 and Stage 2 CLIPScores come from different held-out prompt sets and guidance configurations. They support comparisons within each table, but their absolute values should not be compared across the two stages.
 
 ## Curated visual examples
 

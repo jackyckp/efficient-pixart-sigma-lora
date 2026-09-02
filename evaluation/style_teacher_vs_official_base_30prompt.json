@@ -1,0 +1,75 @@
+{
+  "status": "PASS",
+  "experiment": "stage_1_style_teacher_vs_official_base",
+  "purpose": "Compare the selected 20-step style teacher with the unmodified official PixArt-Sigma base under matched conditions.",
+  "protocol": {
+    "base_transformer": "PixArt-alpha/PixArt-Sigma-XL-2-512-MS",
+    "component_model": "PixArt-alpha/pixart_sigma_sdxlvae_T5_diffusers",
+    "resolution": [
+      512,
+      512
+    ],
+    "num_prompts": 30,
+    "prompt_split": "held-out four-category ink-wash benchmark",
+    "category_counts": {
+      "landscapes": 8,
+      "flora_fauna": 8,
+      "minimalist_negative_space": 7,
+      "architecture_figures": 7
+    },
+    "seed": 42,
+    "num_inference_steps": 20,
+    "guidance_scale": 1.5,
+    "clip_model": "openai/clip-vit-base-patch32",
+    "clip_metric": "mean text-image alignment score over the 30 generated images",
+    "cmmd_reference": "first 100 images from the validated local ink-wash reference archive",
+    "cmmd_kernel": "Gaussian RBF over normalized CLIP image embeddings",
+    "cmmd_bandwidth_sigma": 10.0
+  },
+  "results": [
+    {
+      "model_id": "official_base",
+      "label": "Official PixArt-Sigma base",
+      "adapter": null,
+      "mean_clip_score": 0.348983,
+      "cmmd_to_reference": 0.0019,
+      "category_clip_score": {
+        "landscapes": 0.3551,
+        "flora_fauna": 0.3458,
+        "minimalist_negative_space": 0.3396,
+        "architecture_figures": 0.355
+      }
+    },
+    {
+      "model_id": "style_teacher_plant209_step4000",
+      "label": "Style Teacher: plant209, step 4,000",
+      "adapter": {
+        "type": "PEFT LoRA",
+        "rank": 16,
+        "alpha": 16,
+        "training_samples": 209,
+        "optimizer_updates": 4000
+      },
+      "mean_clip_score": 0.360187,
+      "cmmd_to_reference": 0.001229,
+      "category_clip_score": {
+        "landscapes": 0.3675,
+        "flora_fauna": 0.3567,
+        "minimalist_negative_space": 0.3507,
+        "architecture_figures": 0.3688
+      }
+    }
+  ],
+  "comparison": {
+    "absolute_clip_gain": 0.011204,
+    "relative_clip_gain_percent": 3.2105,
+    "absolute_cmmd_reduction": 0.000671,
+    "relative_cmmd_reduction_percent": 35.3158
+  },
+  "interpretation": {
+    "clip_score": "The selected teacher has higher mean prompt-image alignment than the official base on the matched 30-prompt benchmark.",
+    "cmmd": "The selected teacher is closer to the local ink-wash reference distribution under this CLIP-kernel statistic.",
+    "limitation": "CLIPScore is not a direct style-fidelity or human-preference metric; model selection also used CMMD and visual review."
+  },
+  "cross_stage_warning": "Do not compare these absolute scores directly with the distillation table: Stage 2 uses a different held-out prompt set and guidance configuration."
+}
